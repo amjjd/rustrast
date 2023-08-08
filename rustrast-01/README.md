@@ -1,7 +1,7 @@
 rustrast 01 - Pixels on a screen
 ================================
 
-For context, see the [main README](../README.md).
+For context, see the [main README](../).
 
 In this chapter, I get a Rust development environment up and running, and figure out how to get some pixels on the
 screen.
@@ -64,7 +64,9 @@ that uses a different, non-Microsoft crate called `winapi`. The Rust for Windows
 at the same time as Rust and modern 3D rendering.
 
 About 30 minutes of combining the two examples above, and scanning the first few chapters of the
-[Rust book](https://doc.rust-lang.org/book/title-page.html) later, I got to the code in this repo. Please don't take
-this as idiomatic Rust; it's the very first thing I've written in the language. Also, error handling is non-existent:
-the application will panic if anything goes wrong. Finally, I'm not at all confident that how I've dealt with the
-various `null` handles and structure creations is idiomatic.
+[Rust book](https://doc.rust-lang.org/book/title-page.html) later, I got a working app. I felt I was not writing
+idiomatic Rust; this is the very first thing I've written in the language. I was particularly unsure that how I dealt
+with the various `null` handles and structure creations was idiomatic. Then I found the `windows-rs` sample
+[create_window](https://github.com/microsoft/windows-rs/blob/0.48.0/crates/samples/windows/create_window/src/main.rs)
+and did some cleaning up to get the code in the repo. The main changes I made were to `None` instead of several other
+approaches for nulls; the question mark operator instead of `unwrap`; and I moved `unsafe` to the entire main function.
