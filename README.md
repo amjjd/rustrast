@@ -43,4 +43,4 @@ never actually properly learned how the most advanced parts of it work and haven
 planning on using Rust for the first time.
 [It's John Carmack approved](https://twitter.com/ID_AA_Carmack/status/1094419108781789184)!
 
-Next up, [let's get some pixels on the screen using Rust](rustrast-01/README.md).
+Next up, [let's get some pixels on the screen using Rust](rustrast-01/).
