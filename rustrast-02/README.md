@@ -36,7 +36,7 @@ To keep things simple, I decided to start with `CreateDIBSection` and `BitBlt` a
 the buffer to the screen. For timing I used
 [QueryPerformanceCounter](https://learn.microsoft.com/en-us/windows/win32/api/profileapi/nf-profileapi-queryperformancecounter)
 and I copied as many frames as I could by requesting a complete repaint of the window after every paint, with no
-attempt to cap the frame rate or synchronise with the vertical refesh. I also ensures that the application declares
+attempt to cap the frame rate or synchronise with the vertical refesh. I also ensured that the application declares
 itself as
 [DPI aware](https://learn.microsoft.com/en-us/windows/win32/hidpi/high-dpi-desktop-application-development-on-windows)
 so It doesn't get bitmap scaled by the OS.
@@ -75,8 +75,8 @@ pub unsafe fn draw(buffer: *mut RGBQUAD, width: u16, height: u16) {
 
 ... that call to `offset` for every pixel made me suspicious. I tried `cargo build -r` to get a release build, assuming
 that the call would be inlined. There was a big improvement: the release build takes about 1.6ms to draw a maximised
-frame. However, I'd like to get decent performance in debug mode, and even 1.6ms is a few orders of magnitude slower 
-than it should be possible to fill memory, so I tried a [slice](https://doc.rust-lang.org/std/primitive.slice.html):
+frame. However, I'd like to get decent performance in debug mode, and even 1.6ms seems a bit slower than it should be
+possible to fill memory, so I tried a [slice](https://doc.rust-lang.org/std/primitive.slice.html):
 
 ```rust
 let buffer_slice = from_raw_parts_mut(buffer, (width as usize) * (height as usize));
