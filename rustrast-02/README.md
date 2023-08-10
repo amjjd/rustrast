@@ -198,8 +198,19 @@ pub unsafe fn draw(buffer: *mut RGBQUAD, width: u16, height: u16) {
 ```
 
 Debug mode takes about 9ms per frame with no change to release mode, suggesting that the compiler does in fact combine
-the writes in release mode. I decided that I need to disassemble to see exactly what it does. The inner loop in release
-mode seems reasonably optimised, processing 256 bits at a time using two `movdqu`s:
+the writes in release mode. I decided that I need to disassemble to see exactly what it does. The inner loop of the
+version that separately sets two pixels at a time is in fact optimised more than I expected:
+
+```
+  0000000140001660: 42 0F 11 04 C1     movups      xmmword ptr [rcx+r8*8],xmm0
+  0000000140001665: 42 0F 11 44 C1 10  movups      xmmword ptr [rcx+r8*8+10h],xmm0
+  000000014000166B: 49 83 C0 04        add         r8,4
+  000000014000166F: 4C 39 C2           cmp         rdx,r8
+  0000000140001672: 75 EC              jne         0000000140001660
+```
+
+This is procesing 256 bits at a time using two calls to `movups`, an SSE instruction. The inner loop of the version
+that copies 64 bits at a time is similar, but uses two calls to `movdqu` from SSE2:
 
 ```
   0000000140001640: F3 42 0F 7F 04 D0  movdqu      xmmword ptr [rax+r10*8],xmm0
@@ -211,8 +222,16 @@ mode seems reasonably optimised, processing 256 bits at a time using two `movdqu
 ```
 
 Unrolling the loop like that is only possible because I'm setting the same 64-bit value throughout the array. However,
-it does suggest it would be worthwhile checking the performance of using Rust's `u128` primitive to write four pixels
-at once when it comes to drawing actual polygons.
+it does suggest a few things:
+
+* There's no penalty to copying `RGBQUAD`s rather than converting them to `u32` or larger.
+* Those are unaligned instructions, although they perform the same as the aligned versions if the memory is aligned.
+  While the locations I see from `CreateDIBSection` do seem to be at least 16-byte aligned, I would need to allocate my
+  own buffer and use `SetDIBitsToDevice` or `StretchDIBits` to ensure it.
+* When I'm drawing polygons I may need to write 4 pixels at once to give the optimiser a chance.
+
+I've checked in the second-last version of the draw loop as dealing with `RGBQUAD`s is a lot easier than packing pairs
+of pixels into `i64`s.
 
 How am I feeling about Rust?
 ----------------------------
