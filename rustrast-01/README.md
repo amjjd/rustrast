@@ -71,5 +71,5 @@ with the various `null` handles and structure creations was idiomatic. Then I fo
 and did some cleaning up to get the code in the repo. The main changes I made were to `None` instead of several other
 approaches for nulls; the question mark operator instead of `unwrap`; and I moved `unsafe` to the entire main function.
 
-Next, [let's do some animation](rustrast-02/).
+Next, [let's do some animation](../rustrast-02/).
 
