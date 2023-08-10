@@ -21,17 +21,17 @@ Development environment
 
 Microsoft has a [Rust for Windows tutorial](https://learn.microsoft.com/en-us/windows/dev-environment/rust/setup) I'll
 follow. Oddly, it seems to recommend installing Visual Studio but then states that it will use Visual Studio Code for
-the examples. I like Visual Studio Code, so I'll use that.
+the examples. I like Visual Studio Code, so I decided to use that.
 
-First step is to install the [C++ build tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/). Is Rust not
-self-hosting yet? Anyway, the tutorial recommends installing support for C++, .NET desktop and UWP, rather charmingly
-suggesting that "some dependency will arise where they're required". This is on microsoft.com!
+First step was to install the [C++ build tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/). Is Rust
+not self-hosting yet? Anyway, the tutorial recommends installing support for C++, .NET desktop and UWP, rather
+charmingly suggesting that "some dependency will arise where they're required". This is on microsoft.com!
 
-Here's the first big thing that's changed: the stub installer that downloads the real installers is 3.5MB. [That's
-about the size of Qtest](https://archive.org/details/qtest), the demo that so excited me as a teenager. The development
-tools themselves take up _20GB_.
+Here's the first big thing that's changed in the last 25 years: the stub installer that downloads the real installers
+is 3.5MB. [That's about the size of Qtest](https://archive.org/details/qtest), the demo that so impressed me as a
+teenager. The development tools themselves take up _20GB_.
 
-Next is Rust itself, the 64-bit installer from [rust-lang.org](https://www.rust-lang.org/tools/install). This is a
+Next was Rust itself, the 64-bit installer from [rust-lang.org](https://www.rust-lang.org/tools/install). This is a
 console installer, press enter after it tells you the path it's going to install to. The installer updates your user
 `PATH` variable so you can start a fresh console (I recommend [Cmder](https://cmder.app/) in
 [Windows Terminal](https://medium.com/talpor/windows-terminal-cmder-%EF%B8%8F-573e6890d143)) and immediately run
@@ -70,3 +70,6 @@ with the various `null` handles and structure creations was idiomatic. Then I fo
 [create_window](https://github.com/microsoft/windows-rs/blob/0.48.0/crates/samples/windows/create_window/src/main.rs)
 and did some cleaning up to get the code in the repo. The main changes I made were to `None` instead of several other
 approaches for nulls; the question mark operator instead of `unwrap`; and I moved `unsafe` to the entire main function.
+
+Next, [let's do some animation](rustrast-02/).
+
