@@ -231,7 +231,7 @@ it does suggest a few things:
 * When I'm drawing polygons I may need to write 4 pixels at once to give the optimiser a chance.
 
 I've checked in the second-last version of the draw loop as dealing with `RGBQUAD`s is a lot easier than packing pairs
-of pixels into `i64`s.
+of pixels into `i64`s, and I presume windows-rs has handled the endianness properly.
 
 How am I feeling about Rust?
 ----------------------------
