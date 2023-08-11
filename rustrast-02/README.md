@@ -209,7 +209,7 @@ version that separately sets two pixels at a time is in fact optimised more than
   0000000140001672: 75 EC              jne         0000000140001660
 ```
 
-This is procesing 256 bits at a time using two calls to `movups`, an SSE instruction. The inner loop of the version
+This is processing 256 bits at a time using two calls to `movups`, an SSE instruction. The inner loop of the version
 that copies 64 bits at a time is similar, but uses two calls to `movdqu` from SSE2:
 
 ```
