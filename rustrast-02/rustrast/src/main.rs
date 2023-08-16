@@ -12,8 +12,7 @@ use windows::{
         Graphics::Gdi::*,
     }
 };
-
-mod rast;
+use rustrast::*;
 
 static mut TICKS_TO_MS: f64 = 0.0;
 
@@ -137,7 +136,7 @@ unsafe extern "system" fn window_proc(hwnd: HWND, msg: u32, w_param: WPARAM, l_p
             let mut start: i64 = 0;
             QueryPerformanceCounter(&mut start);
 
-            rast::draw(BACK_BUFFER, BACK_BUFFER_WIDTH, BACK_BUFFER_HEIGHT);
+            draw(BACK_BUFFER, BACK_BUFFER_WIDTH, BACK_BUFFER_HEIGHT);
 
             let mut end: i64 = 0;
             QueryPerformanceCounter(&mut end);
