@@ -33,7 +33,7 @@ While the drawing code in this chapter is throwaway work and therefore performan
 about 8.5ms per frame in release mode, 60ms in debug mode. Window size doesn't matter as the draw loop always writes
 O(number of vertices) pixels. Half the time in release mode and almost all of it in debug mode is spent sorting the
 vector of vertices. I chose to do this every frame as it's necessary if the model is rotating, say, or if the camera
-moves. Once I start redering polygons the sort will go away.
+moves. Once I start rendering polygons the sort will go away.
 
 Rust?
 -----
@@ -43,8 +43,8 @@ I've used a few more language features, notably closures to avoid repeating the 
 Lifetimes make the learning curve steep, and I think in particular `String` vs `str`: it's really not obvious to a
 beginner how to write a function that accepts a string.
 
-It's a bit annoying that the support for sorting by floating point numbers is incomplete. Java defines an
-[odering for floats](https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Float.html#compareTo(java.lang.Float))
+It's a bit annoying that the support for sorting by floating point numbers is awkward. Java defines an
+[ordering for floats](https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Float.html#compareTo(java.lang.Float))
 that is inconsistent with the comparison operators and I have never heard of anyone complaining. `NaN` is conceptually
 similar to an SQL `NULL`, and SQL sorts (and groups) `NULL` inconsistently with the comparison operators. Perhaps a
 `sort_by_float_key` to go with the experimental `sort_floats` on `Vec` would help.
