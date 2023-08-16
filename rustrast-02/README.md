@@ -131,10 +131,12 @@ pub unsafe fn draw(buffer: *mut RGBQUAD, width: u16, height: u16) {
 }
 ```
 
-That's an improvement: 8ms in debug, about 0.6ms in release. 0.6ms for about 8MB of pixel data is close to the memory
-bandwidth, so I don't think we can do better than that. At this point I realised that I had a divide-modulo-3 per pixel
-in all the other versions, which is probably bad, so I went back to the very first version and got rid of it. The
-simplest way was to use a two-pixel pattern:
+That's an improvement: 8ms in debug, about 0.6ms in release. 0.6ms for about 8MB of pixel data is not far off half the
+peak memory bandwidth of the DDR4-4000 RAM in my machine (I think, I don't know exactly how this stuff works but there
+is [sales material](https://www.crucial.com/support/memory-speeds-compatability) online), so I don't think I can do a
+lot better than that. At this point I realised that I had a divide-modulo-3 per pixel in all the other versions, which
+is probably bad, so I went back to the very first version and got rid of it. Again, the simplest way was to use a 
+two-pixel pattern:
 
 ```
 static PATTERN: [RGBQUAD; 2] = [
@@ -176,9 +178,9 @@ pub unsafe fn draw(buffer: *mut RGBQUAD, width: u16, height: u16) {
 ```
 
 This is about the same speed as `fill` in release mode and a bit slower than it at 12ms per frame in debug mode. The
-pointer offsets should be compiled directly into an i86 `MOV` instruction. I would need to disassemble the function to
-see if the compiler is actually doing that, but I did check if it's combining the two writes into one 64-bit one by
-doing that explicitly:
+pointer offset calculations are capable of being compiled directly into an i86 `MOV` instruction. I would need to
+disassemble the function to see if the compiler is actually doing that, but I did check if it's combining the two
+writes into one 64-bit one by doing that explicitly:
 
 ```rust
 static PATTERN: [[RGBQUAD; 2]; 2] = [
@@ -198,8 +200,14 @@ pub unsafe fn draw(buffer: *mut RGBQUAD, width: u16, height: u16) {
 ```
 
 Debug mode takes about 9ms per frame with no change to release mode, suggesting that the compiler does in fact combine
-the writes in release mode. I decided that I need to disassemble to see exactly what it does. The inner loop of the
-version that separately sets two pixels at a time is in fact optimised more than I expected:
+the writes in release mode.
+
+Finally doing the right thing
+-----------------------------
+
+I decided that I need to disassemble to see exactly what it does. I used `dumpbin` that comes with the C compiler tools
+you need to install for Rust. The Rust compiler does heavy inlining so it's a bit tricky to find, but the inner loop of
+the version that separately sets two pixels at a time is in fact optimised more than I expected:
 
 ```
   0000000140001660: 42 0F 11 04 C1     movups      xmmword ptr [rcx+r8*8],xmm0
@@ -226,15 +234,19 @@ it does suggest a few things:
 
 * There's no penalty to copying `RGBQUAD`s rather than converting them to `u32` or larger.
 * Those are unaligned instructions, although they perform the same as the aligned versions if the memory is aligned.
-  While the locations I see from `CreateDIBSection` do seem to be at least 16-byte aligned, I would need to allocate my
-  own buffer and use `SetDIBitsToDevice` or `StretchDIBits` to ensure it.
-* When I'm drawing polygons I may need to write 4 pixels at once to give the optimiser a chance.
+  While the locations I see from `CreateDIBSection` do seem to be at least 16-byte aligned (more probably, 4KB page
+  aligned), I would need to allocate my own buffer and use `SetDIBitsToDevice` or `StretchDIBits` to ensure it.
+* When I'm drawing polygons I may need to write 4 pixels at once to give the optimiser a chance. But I will look at the
+  disassembly first!
 
-I've checked in the second-last version of the draw loop as dealing with `RGBQUAD`s is a lot easier than packing pairs
-of pixels into `i64`s, and I presume windows-rs has handled the endianness properly.
+I comnmitted the second-last version of the draw loop as dealing with `RGBQUAD`s is a lot easier than packing pairs of
+pixels into `i64`s, and I presume windows-rs has handled the endianness properly.
 
 How am I feeling about Rust?
 ----------------------------
+
+I like how opinionated Rust is: there is a standard build and dependency system; you get warnings if you don't use
+idiomatic casing.
 
 I still have a constant feeling that I'm not doing things idiomatically, which is not helped by my not having read much
 of the learning material yet. I know I don't understand how casting works yet, as I just keep trying things until it
