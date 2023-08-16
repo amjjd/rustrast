@@ -250,6 +250,6 @@ idiomatic casing.
 
 I still have a constant feeling that I'm not doing things idiomatically, which is not helped by my not having read much
 of the learning material yet. I know I don't understand how casting works yet, as I just keep trying things until it
-compiles. I definitely dont understand modules yet either.
+compiles. I definitely don't fully understand modules yet either.
 
 Next, [it's time to load a 3D model](../rustrast-03/).
