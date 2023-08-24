@@ -19,7 +19,7 @@ now.
 Just get to the point(s)!
 -------------------------
 
-I don't want to actually do the 3D geometry calculations at this step, so decided to just scale the model to fit the
+I didn't want to actually do the 3D geometry calculations at this step, so decided to just scale the model to fit the
 window, with a small pulse to the scaling factor so there is some animation, and draw just the vertices, shaded
 according to their z coordinates to emulate some form of diminished lighting. Conveniently the model I chose is y up,
 and has higher y values at the bottom, so matches the screen well.
@@ -32,8 +32,9 @@ While the drawing code in this chapter is throwaway work and therefore performan
 `f32` as that should allow for the best performance with SIMD instructions later. Performance is disappointing, at
 about 8.5ms per frame in release mode, 60ms in debug mode. Window size doesn't matter as the draw loop always writes
 O(number of vertices) pixels. Half the time in release mode and almost all of it in debug mode is spent sorting the
-vector of vertices. I chose to do this every frame as it's necessary if the model is rotating, say, or if the camera
-moves. Once I start rendering polygons the sort will go away.
+vector of vertices. I chose to do this every frame as it would be necessary if the model was rotating, say, or if the
+camera moved. I plan on using a z-buffer for visibility from the next chapter on so I decided not to spend any time
+optimising the sort.
 
 Rust?
 -----
@@ -44,9 +45,9 @@ Lifetimes make the learning curve steep, and I think in particular `String` vs `
 beginner how to write a function that accepts a string.
 
 It's a bit annoying that the support for sorting by floating point numbers is awkward. Java defines an
-[ordering for floats](https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Float.html#compareTo(java.lang.Float))
-that is inconsistent with the comparison operators and I have never heard of anyone complaining. `NaN` is conceptually
-similar to an SQL `NULL`, and SQL sorts (and groups) `NULL` inconsistently with the comparison operators. Perhaps a
-`sort_by_float_key` to go with the experimental `sort_floats` on `Vec` would help.
+[ordering](https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Float.html#compareTo(java.lang.Float))
+for floats that is inconsistent with the comparison operators and I have never heard of anyone complaining. `NaN` is
+conceptually similar to an SQL `NULL`, and SQL sorts (and groups) `NULL` inconsistently with the comparison operators.
+Perhaps a `sort_by_float_key` to go with the experimental `sort_floats` on `Vec` would help.
 
-Next, [I'll draw the polygons](../rustrast-03/).
+Next, [3D transformation](../rustrast-03/).
