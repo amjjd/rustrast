@@ -21,8 +21,7 @@ Just get to the point(s)!
 
 I didn't want to actually do the 3D geometry calculations at this step, so decided to just scale the model to fit the
 window, with a small pulse to the scaling factor so there is some animation, and draw just the vertices, shaded
-according to their z coordinates to emulate some form of diminished lighting. Conveniently the model I chose is y up,
-and has higher y values at the bottom, so matches the screen well.
+according to their z coordinates to emulate some form of diminished lighting.
 
 The result is as expected:
 
@@ -50,4 +49,4 @@ for floats that is inconsistent with the comparison operators and I have never h
 conceptually similar to an SQL `NULL`, and SQL sorts (and groups) `NULL` inconsistently with the comparison operators.
 Perhaps a `sort_by_float_key` to go with the experimental `sort_floats` on `Vec` would help.
 
-Next, [3D transformation](../rustrast-03/).
+Next, [3D transformation](../rustrast-04/).
