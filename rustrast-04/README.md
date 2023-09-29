@@ -154,7 +154,7 @@ Some (dis)assembly required
 The compiler is certainly using SIMD instructions, but the disassembly is hard to follow. The operations that matter are
 transforming a vertex:
 
-```
+```assembly
 _ZN8rustrast5maths21HomogenousCoordinates11transformed17h345139fd16498979E:
   00000001400055F0: 48 83 EC 38        sub         rsp,38h
   00000001400055F4: 44 0F 29 44 24 20  movaps      xmmword ptr [rsp+20h],xmm8
@@ -210,7 +210,7 @@ _ZN8rustrast5maths21HomogenousCoordinates11transformed17h345139fd16498979E:
   
 ... and converting back to cartesian coordinates, which is inlined:
   
-```
+```assembly
   0000000140006866: F3 0F 10 45 DC     movss       xmm0,dword ptr [rbp-24h]
   000000014000686B: F3 0F 10 4D D8     movss       xmm1,dword ptr [rbp-28h]
   0000000140006870: F3 0F 5E C8        divss       xmm1,xmm0
@@ -278,7 +278,7 @@ pub fn transformed(&self, t: &Transformation) -> Self {
 This is an improvement: transforming takes about 0.5 - 0.7ms, and the resulting disassembly is much shorter and easier
 to follow:
 
-```
+```assembly
 _ZN8rustrast5maths21HomogenousCoordinates11transformed17he0f3e2c7a40d87eeE:
   0000000140005530: 48 89 C8           mov         rax,rcx
   0000000140005533: 0F 10 02           movups      xmm0,xmmword ptr [rdx]
@@ -306,7 +306,7 @@ processor in my machine which supports up to AVX2 using `cargo rustc --bin rustr
 only way I could get the compiler to use AVX instructions was to annotate it with `target_feature`. The result was no
 faster:
 
-```
+```assembly
 _ZN8rustrast5maths21HomogenousCoordinates11transformed17h98f29f12215796a7E:
   0000000140005530: C4 E2 79 18 02     vbroadcastss xmm0,dword ptr [rdx]
   0000000140005535: C4 C1 78 59 00     vmulps      xmm0,xmm0,xmmword ptr [r8]
@@ -346,7 +346,7 @@ pub unsafe fn transformed_avx2(&self, t: &Transformation) -> Self {
 
 But despite only doing two multiplies, it isn't faster. Again, swizzling is adding unavoidable extra operations:
 
-```
+```assembly
 _ZN8rustrast5maths21HomogenousCoordinates16transformed_avx217h3af60caebd51cd7cE:
   0000000140005520: 48 89 C8           mov         rax,rcx
   0000000140005523: C5 FB 10 02        vmovsd      xmm0,qword ptr [rdx]
