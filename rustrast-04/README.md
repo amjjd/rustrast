@@ -134,13 +134,13 @@ pub fn to_cartesian(&self) -> CartesianCoordinates {
 }
 ```
 
-See [maths.rs](./src/maths.rs) for all implementations, including utilities for creating the different types of
+See [maths.rs](./rustrast/src/maths.rs) for all implementations, including utilities for creating the different types of
 transformation.
 
 In order to simplify things, I decided not to do any clipping against the view volume, so each vertex is multiplied by a
 single matrix and then converted from homogenous coordinates back to cartesian just once.
 
-After some messing about with the view volume, the result is pleasing:
+After some messing about with the view volume, the result was pleasing:
 
 ![Rotating vertices, with perspective projection](./screenshot.png)
 

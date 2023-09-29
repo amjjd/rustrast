@@ -23,7 +23,7 @@ I didn't want to actually do the 3D geometry calculations at this step, so decid
 window, with a small pulse to the scaling factor so there is some animation, and draw just the vertices, shaded
 according to their z coordinates to emulate some form of diminished lighting.
 
-The result is as expected:
+The result was as expected:
 
 ![The vertices](./screenshot.png)
 
@@ -32,8 +32,8 @@ While the drawing code in this chapter is throwaway work and therefore performan
 about 8.5ms per frame in release mode, 60ms in debug mode. Window size doesn't matter as the draw loop always writes
 O(number of vertices) pixels. Half the time in release mode and almost all of it in debug mode is spent sorting the
 vector of vertices. I chose to do this every frame as it would be necessary if the model was rotating, say, or if the
-camera moved. I plan on using a z-buffer for visibility from the next chapter on so I decided not to spend any time
-optimising the sort.
+camera moved. I plan on using a z-buffer for visibility in future so I decided not to spend any time optimising the
+sort.
 
 Rust?
 -----
@@ -41,7 +41,7 @@ Rust?
 I've used a few more language features, notably closures to avoid repeating the timing code.
 
 Lifetimes make the learning curve steep, and I think in particular `String` vs `str`: it's really not obvious to a
-beginner how to write a function that accepts a string.
+beginner how to write a function that accepts any type of string.
 
 It's a bit annoying that the support for sorting by floating point numbers is awkward. Java defines an
 [ordering](https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Float.html#compareTo(java.lang.Float))

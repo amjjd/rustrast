@@ -19,15 +19,15 @@ a few kernel calls per frame. There are a few ways to do this; you can allocate 
 [StretchDIBits](https://learn.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-stretchdibits). Alternatively,
 use [CreateDIBSection](https://learn.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-createdibsection) to
 allocate the buffer and [BitBlt](https://learn.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-bitblt) to copy
-it to the screen. The second method is
-[documented as being faster](https://learn.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-bitblt#remarks) but
-this may or may not be true given differences between display drivers.
+it to the screen. The second method is [documented as being
+faster](https://learn.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-bitblt#remarks) but this may or may not be
+true given differences between display drivers.
 
 When I last did this kind of thing, Windows had just added [DirectDraw](https://en.wikipedia.org/wiki/DirectDraw) to
 provide lower-level access to the video card, including things like page flipping between buffers in video memory and
 synchronising with the vertical refresh. DirectDraw has been pretty thoroughly deprecated in favour of
-[Direct2D](https://learn.microsoft.com/en-us/windows/win32/direct2d/direct2d-portal), and using it to draw pixels while
-staying hardware accelerated seems far more complicated than the basic GDI functions above.
+[Direct2D](https://learn.microsoft.com/en-us/windows/win32/direct2d/direct2d-portal), and using that to draw pixels
+while staying hardware accelerated seemed far more complicated than the basic GDI functions above.
 
 Measure, Measure, Code
 ----------------------
@@ -37,25 +37,25 @@ the buffer to the screen. For timing I used
 [QueryPerformanceCounter](https://learn.microsoft.com/en-us/windows/win32/api/profileapi/nf-profileapi-queryperformancecounter)
 and I copied as many frames as I could by requesting a complete repaint of the window after every paint, with no
 attempt to cap the frame rate or synchronise with the vertical refesh. I also ensured that the application declares
-itself as
-[DPI aware](https://learn.microsoft.com/en-us/windows/win32/hidpi/high-dpi-desktop-application-development-on-windows)
-so It doesn't get bitmap scaled by the OS.
+itself as [DPI
+aware](https://learn.microsoft.com/en-us/windows/win32/hidpi/high-dpi-desktop-application-development-on-windows) so it
+doesn't get bitmap scaled by the OS.
 
 The result? It takes between 0.5 and 2ms to `BitBlt` an entire maximized 1920x1200 window on my Dell XPS 9500. It has a
 GTX 1650 Ti in it, but looking at Task Manager shows that GDI is using the integrated Intel UHD 630. On my Surface
 Laptop Studio it takes about 2ms when connected to a 2560x1440 display, and similar on the laptop's own 2400x1600
-screen. In both cases GDI was using the integrated Iris Xe graphics rather than the discrete RTX 3050 Ti. I think
-that's good enough - it would support 500+ frames per second which is far beyond any of the screens' refresh rates - so
-there is no need to test DirectX.
+screen. In both cases GDI uses the integrated Iris Xe graphics rather than the discrete RTX 3050 Ti. I though that was
+good enough - it would support 500+ frames per second which is far beyond any of the screens' refresh rates - so there
+was no need to test DirectX.
 
 Playing with the Surface Laptop Studio also let me discover that when you move a window between screens with different
-DPI, Windows will happily suggest a size that is bigger than the target screen.
+DPI, Windows will happily suggest a new windows size that is bigger than the target screen.
 
 The performance of my first attempt at an animated pattern left a lot to be desired: about 13ms per frame on the Dell.
 It was slow enough that my first guess was the Windows compositor was introducing a vertical sync pause; however
 commenting out the call to `draw` verified that you can BitBlt at far above the screen's refresh rate.
 
-I know that the right thing to do is attach a profiler, but looking at the code to draw the pattern:
+I knew that the right thing to do is attach a profiler, but looking at the code to draw the pattern:
 
 ```rust
 static mut START: usize = 0;
@@ -75,7 +75,7 @@ pub unsafe fn draw(buffer: *mut RGBQUAD, width: u16, height: u16) {
 
 ... that call to `offset` for every pixel made me suspicious. I tried `cargo build -r` to get a release build, assuming
 that the call would be inlined. There was a big improvement: the release build takes about 1.6ms to draw a maximised
-frame. However, I'd like to get decent performance in debug mode, and even 1.6ms seems a bit slower than it should be
+frame. However, I wanted to get decent performance in debug mode, and even 1.6ms seems a bit slower than it should be
 possible to fill memory, so I tried a [slice](https://doc.rust-lang.org/std/primitive.slice.html):
 
 ```rust
@@ -239,7 +239,7 @@ it does suggest a few things:
 * When I'm drawing polygons I may need to write 4 pixels at once to give the optimiser a chance. But I will look at the
   disassembly first!
 
-I comnmitted the second-last version of the draw loop as dealing with `RGBQUAD`s is a lot easier than packing pairs of
+I committed the second-last version of the draw loop as dealing with `RGBQUAD`s is a lot easier than packing pairs of
 pixels into `i64`s, and I presume windows-rs has handled the endianness properly.
 
 How am I feeling about Rust?
