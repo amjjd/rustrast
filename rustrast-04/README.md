@@ -418,7 +418,7 @@ pub unsafe fn simd_transformed_to_cartesian(dest: &mut[CoordinateComponents; 3],
 }
 ```
 
-CoordinateComponents is a wrapper around [AVec](https://docs.rs/aligned-vec/latest/aligned_vec/struct.AVec.html) to
+`CoordinateComponents` is a wrapper around [AVec](https://docs.rs/aligned-vec/latest/aligned_vec/struct.AVec.html) to
 ensure alignment without exposing how to the calling code. This is a bit faster, at about 0.4ms-0.6ms to transform all
 vertices in release mode. This version doesn't need the transformation matrices to be stored as columns, but I decided
 to leave them that way to allow the simple implementations to be fast.
