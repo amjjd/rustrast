@@ -1,4 +1,4 @@
-rustrast 04 - 3D Transformation
+rustrast 04 - 3D transformation
 ===============================
 
 For context, see the [main README](../).
