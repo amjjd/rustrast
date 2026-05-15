@@ -36,7 +36,7 @@ To keep things simple, I decided to start with `CreateDIBSection` and `BitBlt` a
 the buffer to the screen. For timing I used
 [QueryPerformanceCounter](https://learn.microsoft.com/en-us/windows/win32/api/profileapi/nf-profileapi-queryperformancecounter)
 and I copied as many frames as I could by requesting a complete repaint of the window after every paint, with no
-attempt to cap the frame rate or synchronise with the vertical refesh. I also ensured that the application declares
+attempt to cap the frame rate or synchronise with the vertical refresh. I also ensured that the application declares
 itself as [DPI
 aware](https://learn.microsoft.com/en-us/windows/win32/hidpi/high-dpi-desktop-application-development-on-windows) so it
 doesn't get bitmap scaled by the OS.

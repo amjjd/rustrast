@@ -14,7 +14,7 @@ model I chose having an orientation that matches the screen (z being perpendicul
 translating it to fit the window. Formalised 3D projection is, basically, the same, but with the addition of rotation to
 account for the relative orientation between the viewer and the object, and scaling by the z axis.
 
-Typically projection involves a number of tranformation steps carried out in order, each of which is a combination of
+Typically projection involves a number of transformation steps carried out in order, each of which is a combination of
 translations, scales and rotations. First, each model is transformed into its current position, size and orientation in
 the world. The world is then transformed to have the camera look straight down the z-axis, and then further deformed to
 emulate perspective. Finally, some more translation and scaling is done to make everything fit on the screen.
@@ -25,18 +25,18 @@ coordinates") you can scale, rotate, and translate by multiplying by a four-by-f
 multiplication is associative you can multiply a chain of transformations together and reuse that calculation for any
 number of vertices. Using four-element matrices is an elegant hack that both allows for translation using matrix
 multiplication, and, since a final divide is required to go from four-element homogenous coordinates back to regular
-three-element coordinates, encodes the divide necessary for perpective projection.
+three-element coordinates, encodes the divide necessary for perspective projection.
 
 Tinyrenderer describes this in [lesson 4](https://github.com/ssloy/tinyrenderer/wiki/Lesson-4:-Perspective-projection)
 and [lesson 5](https://github.com/ssloy/tinyrenderer/wiki/Lesson-5:-Moving-the-camera); I originally learned it from
 [chapter 6](https://archive.org/details/computergraphics0000unse_y3o2/page/228/mode/2up) of Computer Graphics: 
 Principles and Practice. I'm not going to rehash it here; I'm interested in writing a fast implementation in Rust. Note
 that both tinyrenderer and Computer Graphics: Principles and Practice use a premultiply convention - coordinates are
-treated as single-column matrices, so the matrix is actually multiplied by the vector, and composition of tranformations
-is done by multiplying the second transformation by the first. While the alternative postmultiply convention where
-coordinated are treated as single-row matrices and are actually multipled by the matrix feels more expressive to me,
-premultiplication seems to be used in almost every online example so I decided to use it. There's no practical
-difference.
+treated as single-column matrices, so the matrix is actually multiplied by the vector, and composition of
+transformations is done by multiplying the second transformation by the first. While the alternative postmultiply
+convention where coordinates are treated as single-row matrices and are actually multiplied by the matrix feels more
+expressive to me, premultiplication seems to be used in almost every online example so I decided to use it. There's no
+practical difference.
 
 Something else to be careful about is coordinate system handedness. I've gone with right-handed (z increases towards the
 viewer) here because the model I chose is right-handed. There are small differences between the projection matrices
@@ -485,7 +485,7 @@ experimenting I found sharply diminishing returns after about 3 or 4 threads, so
 Perhaps in a future chapter there might be a gain from rendering or bitblt-ing a frame in parallel with transforming the
 next.
 
-At this point by far the most time-consuming operation is sorting the vertices in z order; that will go away in the next
+At this point by far the most time-consuming operation is sorting the vertices in z order; that will go away in a future
 chapter when I introduce a z buffer to correctly render polygons.
 
 Am I a Rustacean yet?
