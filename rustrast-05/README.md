@@ -277,7 +277,7 @@ hardly worth the effort but maybe a larger scene would show more impact. And wit
 My Rust is rusty
 ----------------
 
-Combing back to this after such a long break was tricky: Rust has a steep learning curve, and I hadn't climbed anywhere
+Coming back to this after such a long break was tricky: Rust has a steep learning curve, and I hadn't climbed anywhere
 near the top last time so I found it difficult to write anything. The compiler was helpful as usual.
 
 All the multithreading this time encouraged me to do more reading and figure out scoped threads (well, the somewhat-
