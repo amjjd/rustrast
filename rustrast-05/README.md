@@ -17,7 +17,7 @@ don't need to expend so much effort on avoiding over-drawing the same pixels mul
 increased allowing scenes to be made of a huge number of tiny polygons; and critically, GPUs became extremely wide SIMD
 processors which don't work particularly well with the heavy branching of an edge walking algorithm.
 
-[One of Michael Abrash's Dr. Dobbs articles](https://www.drdobbs.com/embedded-systems/ramblings-in-real-time/184410364)
+[One of Michael Abrash's Dr. Dobbs articles](https://jacobfilipp.com/DrDobbs/articles/DDJ/1997/9713/9713g/9713g.htm)
 that I remember from that period hinted at how the state of the art would move, without actually being the same: Quake
 drew the tiny triangles that made up a distant character model by drawing the vertices, then subdividing the triangle by
 splitting an edge at its midpoint and drawing that new vertex, then continuing with the two new triangles. For very
