@@ -6,13 +6,13 @@ use scoped_threadpool::Pool;
 mod time;
 mod simd_vec;
 mod obj;
-mod projection;
+mod transformation;
 mod rasterisation;
 
 use time::*;
 use simd_vec::*;
 use obj::*;
-use projection::*;
+use transformation::*;
 use rasterisation::*;
 
 // used by main to ensure the buffer is big enough for whatever SIMD operations we use

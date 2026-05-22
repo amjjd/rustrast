@@ -3,7 +3,7 @@ use regex::*;
 use std::io::*;
 
 use super::simd_vec::*;
-use super::projection::HomogenousCoordinates;
+use super::transformation::HomogenousCoordinates;
 
 // not-suitable-for-production Wavefront .obj parsing; panics on any error
 // https://en.wikipedia.org/wiki/Wavefront_.obj_file
