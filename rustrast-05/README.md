@@ -31,7 +31,7 @@ themselves and many are explored in the paper. [A paper by
 Haykal](https://www.digipen.edu/sites/default/files/public/docs/theses/salem-haykal-digipen-master-of-science-in-computer-science-thesis-an-optimized-triangle-rasterizer.pdf)
 explores further.
 
-Just like earlier - over two years earlier, how time flies - I decided to start with a naive implementation and then
+Just like earlier - over two years earlier, how time flies - I decided to start with a naïve implementation and then
 reimplement using AVX2 intrinsics. After a quick update of Rust and Visual Studio Code, I got to it.
 
 Baby's first rasteriser
