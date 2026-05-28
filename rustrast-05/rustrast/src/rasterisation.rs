@@ -133,33 +133,35 @@ pub fn avx2_calculate_all_bounds(
     let num_chunks = NUM_BOUNDS_THREADS;
     // maintain 128 byte alignment for caching
     let chunk_size = ((model.num_triangles / num_chunks) / 32) * 4;
-
-    let v0s = model.trianglev0s.as_m256i();
-    let v1s = model.trianglev1s.as_m256i();
-    let v2s = model.trianglev2s.as_m256i();
-
-    let mut pool = BOUNDS_WORKERS.lock().unwrap();
     let mut chunk_start = 0;
-    pool.scoped(|scope| {
-        let xmins_out_chunks = xmins_out.as_m256_mut().chunks_exact_mut(chunk_size as usize);
-        let ymins_out_chunks = ymins_out.as_m256_mut().chunks_exact_mut(chunk_size as usize);
-        let xmaxs_out_chunks = xmaxs_out.as_m256_mut().chunks_exact_mut(chunk_size as usize);
-        let ymaxs_out_chunks = ymaxs_out.as_m256_mut().chunks_exact_mut(chunk_size as usize);
 
-        for (xmins_out_chunk, (ymins_out_chunk, (xmaxs_out_chunk, ymaxs_out_chunk))) in xmins_out_chunks.zip(ymins_out_chunks.zip(xmaxs_out_chunks.zip(ymaxs_out_chunks))) {
-            let triangles_offset = chunk_start;
-            scope.execute(move || unsafe {
-                avx2_calculate_bounds_chunk(
-                    xmins_out_chunk, ymins_out_chunk, xmaxs_out_chunk, ymaxs_out_chunk,
-                    v0s, v1s, v2s,
-                    xs, ys,
-                    xmin, ymin, width, height,
-                    triangles_offset, chunk_size as usize);
-            });
+    if chunk_size > 0 {
+        let v0s = model.trianglev0s.as_m256i();
+        let v1s = model.trianglev1s.as_m256i();
+        let v2s = model.trianglev2s.as_m256i();
 
-            chunk_start += chunk_size as usize;
-        }
-    });
+        let mut pool = BOUNDS_WORKERS.lock().unwrap();
+        pool.scoped(|scope| {
+            let xmins_out_chunks = xmins_out.as_m256_mut().chunks_exact_mut(chunk_size as usize);
+            let ymins_out_chunks = ymins_out.as_m256_mut().chunks_exact_mut(chunk_size as usize);
+            let xmaxs_out_chunks = xmaxs_out.as_m256_mut().chunks_exact_mut(chunk_size as usize);
+            let ymaxs_out_chunks = ymaxs_out.as_m256_mut().chunks_exact_mut(chunk_size as usize);
+
+            for (xmins_out_chunk, (ymins_out_chunk, (xmaxs_out_chunk, ymaxs_out_chunk))) in xmins_out_chunks.zip(ymins_out_chunks.zip(xmaxs_out_chunks.zip(ymaxs_out_chunks))) {
+                let triangles_offset = chunk_start;
+                scope.execute(move || unsafe {
+                    avx2_calculate_bounds_chunk(
+                        xmins_out_chunk, ymins_out_chunk, xmaxs_out_chunk, ymaxs_out_chunk,
+                        v0s, v1s, v2s,
+                        xs, ys,
+                        xmin, ymin, width, height,
+                        triangles_offset, chunk_size as usize);
+                });
+
+                chunk_start += chunk_size as usize;
+            }
+        });
+    }
 
     // do any leftovers sequentially
     for i in (chunk_start * 8 as usize)..(model.num_triangles as usize) {

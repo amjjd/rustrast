@@ -300,29 +300,31 @@ pub fn avx2_transformed_to_cartesian(xs_out: &mut SimdVec<f32>, ys_out: &mut Sim
     let num_chunks = NUM_PROJECTION_THREADS;
     // maintain 128 byte alignment for caching
     let chunk_size = ((model.num_vertices / num_chunks) / 32) * 4;
-
-    let xs = model.xs.as_m256();
-    let ys = model.ys.as_m256();
-    let zs = model.zs.as_m256();
-    let ws = model.ws.as_m256();
-
-    let mut pool = PROJECTION_WORKERS.lock().unwrap();
     let mut chunk_start = 0;
-    pool.scoped(|scope| {
-        let xs_out_chunks = xs_out.as_m256_mut().chunks_exact_mut(chunk_size as usize);
-        let ys_out_chunks = ys_out.as_m256_mut().chunks_exact_mut(chunk_size as usize);
-        let zs_out_chunks = zs_out.as_m256_mut().chunks_exact_mut(chunk_size as usize);
 
-        for (xs_out_chunk, (ys_out_chunk, zs_out_chunk)) in xs_out_chunks.zip(ys_out_chunks.zip(zs_out_chunks)) {
-            let vs_out_chunk = [xs_out_chunk, ys_out_chunk, zs_out_chunk];
-            let source_offset = chunk_start;
-            scope.execute(move || unsafe {
-                avx2_chunk_transformed_to_cartesian(vs_out_chunk, xs, ys, zs, ws, t, source_offset, chunk_size as usize);
-            });
+    if chunk_size > 0 {
+        let xs = model.xs.as_m256();
+        let ys = model.ys.as_m256();
+        let zs = model.zs.as_m256();
+        let ws = model.ws.as_m256();
 
-            chunk_start += chunk_size as usize;
-        }
-    });
+        let mut pool = PROJECTION_WORKERS.lock().unwrap();
+        pool.scoped(|scope| {
+            let xs_out_chunks = xs_out.as_m256_mut().chunks_exact_mut(chunk_size as usize);
+            let ys_out_chunks = ys_out.as_m256_mut().chunks_exact_mut(chunk_size as usize);
+            let zs_out_chunks = zs_out.as_m256_mut().chunks_exact_mut(chunk_size as usize);
+
+            for (xs_out_chunk, (ys_out_chunk, zs_out_chunk)) in xs_out_chunks.zip(ys_out_chunks.zip(zs_out_chunks)) {
+                let vs_out_chunk = [xs_out_chunk, ys_out_chunk, zs_out_chunk];
+                let source_offset = chunk_start;
+                scope.execute(move || unsafe {
+                    avx2_chunk_transformed_to_cartesian(vs_out_chunk, xs, ys, zs, ws, t, source_offset, chunk_size as usize);
+                });
+
+                chunk_start += chunk_size as usize;
+            }
+        });
+    }
 
     // do any leftovers sequentially
     for i in (chunk_start * 8 as usize)..(model.num_vertices as usize) {

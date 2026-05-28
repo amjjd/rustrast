@@ -106,29 +106,19 @@ fn bin_triangles(tile_triangles_out: &mut [Vec<Vec<u32>>; NUM_BIN_THREADS], num_
                         continue;
                     }
 
-                    // a triangle is in the tile(s) each of the corners of its bounding box is in
+                    // a triangle is in the tile(s) between each of the corners of its bounding box is in
                     let left = bounds[0][i as usize] as usize / TILE_WIDTH;
                     let top = bounds[1][i as usize] as usize / TILE_HEIGHT;
                     // bounds are integers, so casting is OK
                     let right = bounds[2][i as usize] as usize / TILE_WIDTH;
                     let bottom = bounds[3][i as usize] as usize / TILE_HEIGHT;
 
-                    let tl = (top * num_tiles_x) + left;
-                    out[tl].push(i);
-
-                    if right != left {
-                        let tr = (top * num_tiles_x) + right;
-                        out[tr].push(i);
-                    }
-
-                    if bottom != top {
-                        let bl = (bottom * num_tiles_x) + left;
-                        out[bl].push(i);
-                    }
-
-                    if right != left || bottom != top {
-                        let br = (bottom * num_tiles_x) + right;
-                        out[br].push(i);
+                    for row in top..=bottom {
+                        let l = (row * num_tiles_x) + left;
+                        let r = (row * num_tiles_x) + right;
+                        for tile in l..=r {
+                            out[tile].push(i);
+                        }
                     }
                 }
             });

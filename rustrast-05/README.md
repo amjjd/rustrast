@@ -276,7 +276,7 @@ Note the slightly-hacky way I indicate a backwards facing triangle by giving it 
 
 Similar to projection, performance did not improve with more than four threads; with four threads calculating bounding
 boxes (and culling backwards-facing triangles) takes about 0.5ms. Somewhat surprisingly, moving bounding box calculation
-and backface culling out of the AVX2 triangle fill routing does not seem to speed up the triangle fill; this may be
+and backface culling out of the AVX2 triangle fill routing did not seem to speed up the triangle fill; this may be
 because the calculations were being done at the same time as the first edge functions.
 
 Along the way I realised that bounding boxes can be a bit inaccurate so long as they continue to fully contain the
@@ -285,21 +285,23 @@ at once are in AVX512, which is not supported by my aging laptop.
 
 Anyway, I chose 128 pixel square tiles, and chose to avoid thinking about memory allocation again by enumerating all
 triangles when rendering a tile, quickly discarding and clipping triangles based on the precalculated bounds. This was
-disappointing: using the AVX2 rasteriser and a single thread took about as long as very first, unoptimised, untiled
+disappointing: using the AVX2 rasteriser and a single thread took about as long as the very first, unoptimised, untiled
 version did, and even at four threads (after which performance got worse), it was slightly slower than not using tiles
 at all. Tiling did slightly improve the optimised but not-explicit-SIMD rasteriser, but only with four or more threads.
 256 pixel square tiles made a big improvement, strongly suggesting that the approach of enumerating all triangles for
 each tile and quickly culling was a bad one.
 
-Therefore my next attempt was to assign triangles to between one to four bins, according to the tile where each of their
-bounding box corners is. Doing this without dynamic memory allocation meant creating large buffers, but there was an
-immediate improvement: while binning took around 0.75ms, triangle filling finally benefitted from multithreading,
-bringing the total time to calculate bounding boxes, bin triangles, and fill them to well under 4ms with four threads.
+Therefore my next attempt was to assign triangles to multiple bins, according to the tiles where each of their bounding
+box corners is and the ones in between. Doing this without dynamic memory allocation meant creating large buffers, but
+there was an immediate improvement: while binning took around 1.5ms, triangle filling finally benefitted from
+multithreading, going down to under 2ms with four threads.
 
-I couldn't let it be, so I parallelised binning by storing as many lists of triangles per tile as threads, and adding
-some dynamic memory management (at least for the first couple of frames after resizing the window) and got the time
-taken down to just under 0.5ms using four threads; hardly worth the effort but maybe a larger scene would show more
-impact. And with that, it was time to move on.
+I also parallelised binning by storing as many lists of triangles per tile as threads, and adding some dynamic memory
+management (at least for the first couple of frames after resizing the window) and got the time taken down to just under
+0.5ms using four threads, and the total time to transform, calculate bounds, bin, and fill triangles down to well under
+4ms per frame.
+
+And with that, it was time to move on.
 
 My Rust is rusty
 ----------------
