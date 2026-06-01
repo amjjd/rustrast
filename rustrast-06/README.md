@@ -218,9 +218,8 @@ machine.
 I will continue doing these small changes as I go, mainly to take a break between long sessions of reading confusing and
 contradictory articles about graphics topics. For example, I want to explicitly SIMD-ify the initial edge calculations
 during triangle setup. I'm considering moving the top-left tests into the bounds calculation too, as those are currently
-repeated when a triangle ends up in multiple bins. I also want to refactor how pixels are copied to screen, and try
-bitblt-ing tiles in parallel; as part of this I will stop having Windows allocate the off screen colour buffer and thus
-be able to get rid of almost all non-forced uses of unsafe: I think the only one left would be that I haven't bothered
-to test for avx2 support and I don't intend to.
+repeated when a triangle ends up in multiple bins. I also want to refactor how pixels are copied to screen to remove the
+pointer arithmetic and thus get rid of almost all non-forced uses of unsafe: I think the only one left would be that I
+haven't bothered to test for avx2 support and I don't intend to.
 
 Onward to [more advanced shading](../rustrast-07/).
