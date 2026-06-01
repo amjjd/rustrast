@@ -206,4 +206,21 @@ As mentioned, this was suggested by an LLM; my own plan to do that was to use ge
 take their comparison operator as a generic parameter, which the compiler would then specialise. The macro syntax seems
 elegant, but I would really need to look at some more complex AST-manipulating macros to get a better idea.
 
+On the subject of LLMs, but not really Rust, I had a lengthy interaction with whatever one my Github Copilot was set to.
+It spotted a missed opportunity to use a fused multiply add when culling backwards facing triangles which I implemented.
+Most of the other suggestions were of a similar style: factor out a repeated computation that had assumed either the
+compile would do, or that Intel's pretty advanced instruction-level address computation could handle. Testing proved
+that my intuition was correct, but I kept most of the suggestions anyway. I also independently reordered the SIMD
+intrinsics in a few places to try to put as many between writing a value and reading it as I could; again this made no
+difference so either the compiler was doing it already or my code is completely memory bandwidth limited on this
+machine.
+
+I will continue doing these small changes as I go, mainly to take a break between long sessions of reading confusing and
+contradictory articles about graphics topics. For example, I want to explicitly SIMD-ify the initial edge calculations
+during triangle setup. I'm considering moving the top-left tests into the bounds calculation too, as those are currently
+repeated when a triangle ends up in multiple bins. I also want to refactor how pixels are copied to screen, and try
+bitblt-ing tiles in parallel; as part of this I will stop having Windows allocate the off screen colour buffer and thus
+be able to get rid of almost all non-forced uses of unsafe: I think the only one left would be that I haven't bothered
+to test for avx2 support and I don't intend to.
+
 Onward to [more advanced shading](../rustrast-07/).
