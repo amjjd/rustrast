@@ -193,8 +193,8 @@ The result is satisfying:
 
 ![Ambient and diffuse lit and flat shaded](./screenshot2.png)
 
-I did wrap lighting triangles in a timer; it takes around 6.5ms per frame, more than twice what filling triangles takes.
-I decided not to optimise this at this stage, because the next step will involve refactoring out vertex and fragment
+I did wrap lighting triangles in a timer; it takes around 6.5ms per frame, more than twice what filling them takes. I
+decided not to optimise this at this stage, because the next step will involve refactoring out vertex and fragment
 shading in a way broadly similar to how a modern pipeline works and that's the right time to do it.
 
 Rusticles
@@ -202,8 +202,8 @@ Rusticles
 
 I think the only Rust I learned doing this round of changes was the use of a macro to implement a version of the
 rasteriser for all 8 (well, 6 really - you can't have all top-left or no top-left edges) combinations of top-left edge.
-This was suggested by an LLM; my own plan to do that was to use generics as the AVX compare intrinsics can take their
-comparison operator as a generic parameter, which the compiler would then specialise. The macro syntax seems elegant, but
-I would really need to look at some more complex AST-manipulating macros to get a better idea.
+As mentioned, this was suggested by an LLM; my own plan to do that was to use generics as the AVX compare intrinsics can
+take their comparison operator as a generic parameter, which the compiler would then specialise. The macro syntax seems
+elegant, but I would really need to look at some more complex AST-manipulating macros to get a better idea.
 
 Onward to [more advanced shading](../rustrast-07/).

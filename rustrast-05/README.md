@@ -198,9 +198,9 @@ intact.
 Performance is impressive: about 7ms per frame, down from about 25ms for the non-explicit-SIMD version that uses the
 same incremental approach. I don't expect to make any significant improvement on that.
 
-While a fill rule isn't hugely important given I'm using floating point - very few pixel centres lie exactly on an edge
-- I did want to implement it for the sake of completeness. First, testing if an edge is a top or left one is trivial
-given our triangles are always passed with vertices in counterclockwise order:
+While a fill rule isn't hugely important given I'm using floating point - very few pixel centres lie exactly on an
+edge - I did want to implement it for the sake of completeness. First, testing if an edge is a top or left one is
+trivial given our triangles are always passed with vertices in counterclockwise order:
 
 ```rust
 fn is_top_or_left(x0: f32, y0: f32, x1: f32, y1: f32) -> bool {
