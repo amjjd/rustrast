@@ -155,6 +155,7 @@ impl Transformation {
         _private: ()
     };
 
+    #[allow(dead_code)]
     pub fn translate(dx: f32, dy: f32, dz: f32) -> Self {
         Transformation { matrix: [
             [1.0, 0.0, 0.0,  1.0], 
@@ -267,13 +268,18 @@ impl Transformation {
         let x = up.cross_product(&z).normalised();
         let y = z.cross_product(&x).normalised();
 
-        Transformation::translate(-eye.x, -eye.y, -eye.z).then(&Transformation { matrix: [
+        let eye_v = CartesianVector {x: eye.x, y: eye.y, z: eye.z};
+        let dx = -x.dot_product(&eye_v);
+        let dy = -y.dot_product(&eye_v);
+        let dz = -z.dot_product(&eye_v);
+
+        Transformation { matrix: [
             [x.x, y.x, z.x, 0.0], 
             [x.y, y.y, z.y, 0.0],
             [x.z, y.z, z.z, 0.0],
-            [0.0, 0.0, 0.0, 1.0]],
+            [ dx,  dy,  dz, 1.0]],
             _private: ()
-        })
+        }
     }
 
     pub fn perspective_rh(width: f32, height: f32, near: f32, far: f32) -> Self {
