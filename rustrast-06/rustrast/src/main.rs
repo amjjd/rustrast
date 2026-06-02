@@ -12,9 +12,7 @@ use windows::{
 use lazy_static::*;
 
 use rustrast::*;
-
-mod time;
-use time::*;
+use rustrast::time::*;
 
 fn main() -> Result<()> {
     unsafe {
@@ -98,7 +96,7 @@ static BG: RGBQUAD = RGBQUAD { rgbRed: 0, rgbBlue: 0, rgbGreen: 0, rgbReserved: 
 unsafe extern "system" fn window_proc(hwnd: HWND, msg: u32, w_param: WPARAM, l_param: LPARAM) -> LRESULT {
     match msg {
         WM_CREATE => {
-            time(format!("initialised"), || {init()});
+            init();
             LRESULT(0)
         }
 
@@ -196,6 +194,8 @@ unsafe extern "system" fn window_proc(hwnd: HWND, msg: u32, w_param: WPARAM, l_p
 
             // paint the full window again as soon as we can
             InvalidateRect(hwnd, None, FALSE);
+
+            print_average_times();
         
             LRESULT(0)
         }

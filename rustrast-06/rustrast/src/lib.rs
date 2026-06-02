@@ -3,7 +3,7 @@ use windows::Win32::Graphics::Gdi::*;
 use once_cell::sync::Lazy;
 use scoped_threadpool::Pool;
 
-mod time;
+pub mod time;
 mod simd_vec;
 mod obj;
 mod transformation;
