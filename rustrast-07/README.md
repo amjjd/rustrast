@@ -296,8 +296,8 @@ One was to switch to a reverse-Z depth buffer, entirely so clearing it uses `mem
 frame faster. See the [previous article](../rustrast-06/) for details. In doing so, I found that my view transform was
 wrong and was skewing the z values so I fixed that by copying [the DirectX 
 one](https://learn.microsoft.com/en-us/windows/win32/direct3d9/d3dxmatrixlookatrh) and ported it to the older versions.
-Debugging was frustrating and I undid the SIMD reorderings I did last time for clarity since it had no effect; I presume
-the compiler or the processor itself can do a better job than I can.
+Debugging was frustrating and I undid the SIMD reorderings I did last time for clarity since they had no effect; I
+presume the compiler or the processor itself can do a better job than I can.
 
 Moving working out which edges are top or left into the same step as bounds and area calculation, and explicitly 
 SIMD-ing it and the initial edge function values, might have shaved off about 0.05ms per frame; it's hard to tell
