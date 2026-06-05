@@ -226,7 +226,7 @@ extrapolated points by design. So, clamping has to stay. However, there's now en
 span being fully outside the triangle in the rasteriser is worth it, to the tune of about another 1.5ms per frame.
 Culling spans that entirely fail the depth test shaved off another few tenths. Despite it accounting for just a small
 amount of the time per frame, I wrote a version using AVX intrinsics (using `_mm256_rsqrt_ps`, an implementation of the
-[notorious fast inverse square root](https://en.wikipedia.org/wiki/Fast_inverse_square_root). This gained under 0.1ms at
+[notorious fast inverse square root](https://en.wikipedia.org/wiki/Fast_inverse_square_root)). This gained under 0.1ms at
 best.
 
 To reassure myself that the shader interface was flexible, I implemented a checkerboard shader which was pretty easy:
