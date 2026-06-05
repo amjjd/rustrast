@@ -1,7 +1,7 @@
 rustrast 04 - 3D transformation
 ===============================
 
-For context, see the [main README](../).
+For context, see the [main README](../README.md).
 
 In this chapter, I implement and optimise the mathematical calculations to project a 3D model to the screen with
 perspective correction.

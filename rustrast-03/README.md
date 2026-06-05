@@ -1,7 +1,7 @@
 rustrast 03 - Loading a 3D model
 ================================
 
-For context, see the [main README](../).
+For context, see the [main README](../README.md).
 
 In this chapter, I load a 3D model and draw the vertices on screen.
 

@@ -1,7 +1,7 @@
 rustrast 02 - Animation
 =======================
 
-For context, see the [main README](../).
+For context, see the [main README](../README.md).
 
 In this chapter, I animate a basic pattern on screen and compare the performance of some options for doing that.
 

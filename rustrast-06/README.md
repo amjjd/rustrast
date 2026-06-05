@@ -1,7 +1,7 @@
 rustrast 06 - Hidden surface removal and lighting
 =================================================
 
-For context, see the [main README](../).
+For context, see the [main README](../README.md).
 
 In this installment, I implement a depth buffer and basic lighting so the model starts to look solid.
 

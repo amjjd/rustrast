@@ -1,7 +1,7 @@
 rustrast 07 - Hidden surface removal and lighting
 =================================================
 
-For context, see the [main README](../).
+For context, see the [main README](../README.md).
 
 This time, I refactor my code to look a little bit more like a modern 3d graphics pipeline.
 

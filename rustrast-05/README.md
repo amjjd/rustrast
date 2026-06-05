@@ -1,7 +1,7 @@
 rustrast 05 - Filled polygons
 =============================
 
-For context, see the [main README](../).
+For context, see the [main README](../README.md).
 
 In this chapter, I draw filled, flat shaded triangles instead of just vertices and the model starts to look more real.
 

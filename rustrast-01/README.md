@@ -1,7 +1,7 @@
 rustrast 01 - Pixels on a screen
 ================================
 
-For context, see the [main README](../).
+For context, see the [main README](../README.md).
 
 In this chapter, I get a Rust development environment up and running, and figure out how to get some pixels on the
 screen.
