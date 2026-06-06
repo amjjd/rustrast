@@ -48,8 +48,10 @@ pub trait AvxFragmentShader<T : Copy> : Send + Sync {
 static NUM_VERTEX_SHADER_THREADS: u32 = 4;
 static VERTEX_SHADER_WORKERS: Lazy<Mutex<Pool>> = Lazy::new(|| Mutex::new(Pool::new(NUM_VERTEX_SHADER_THREADS)));
 
-// this isn't suitable for production; in particular there's no opportunity to clip
-// so it is possible that the perpective divide could lead to infinite values
+// This isn't suitable for production; in particular there's no opportunity to clip
+// so it is possible that the perpective divide could lead to infinite values.
+// Note that this does not deal with stragglers, so all input and output slices must be padded
+// to amultiple of 8 - see SimdVec::pad_to_mm256.
 pub fn execute_vertex_shader<T : Send + Copy>(xs_out: &mut SimdVec<f32>, ys_out: &mut SimdVec<f32>, zs_out: &mut SimdVec<f32>, iws_out: &mut SimdVec<f32>, extras_out: &mut[T], model: &Model, shader: &impl AvxVertexShader<T>) {
     debug_assert!(xs_out.len() % 8 == 0);
     debug_assert!(ys_out.len() % 8 == 0);
@@ -62,7 +64,7 @@ pub fn execute_vertex_shader<T : Send + Copy>(xs_out: &mut SimdVec<f32>, ys_out:
     let chunk_size = (((model.num_vertices / num_chunks) / 32) * 4) as usize;
     let mut chunk_start = 0;
 
-    // not using built in chunks to allow the last chunk to be a bit bigger, and keep stragglers below 8
+    // not using built in chunks to allow the last chunk to be a bit bigger
     let xs = model.xs.as_m256();
     let ys = model.ys.as_m256();
     let zs = model.zs.as_m256();
