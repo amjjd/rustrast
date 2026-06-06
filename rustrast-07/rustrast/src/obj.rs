@@ -150,7 +150,7 @@ impl CartesianVector {
     }
 }
 
-pub fn read_obj<R: Read>(file: R) -> Model {
+pub fn read_obj<R: Read>(file: R, read_uvw: bool) -> Model {
     let mut xs = SimdVec::new();
     let mut ys = SimdVec::new();
     let mut zs = SimdVec::new();
@@ -185,7 +185,7 @@ pub fn read_obj<R: Read>(file: R) -> Model {
                         vertex_normal_ys.push(0.0);
                         vertex_normal_zs.push(0.0);
                     }
-                    "vt" => {
+                    "vt" if read_uvw => {
                         let texture = TextureCoordinates::from_texture_line(&line);
                         texture_coordinates.push(texture);
                     }
@@ -216,8 +216,8 @@ pub fn read_obj<R: Read>(file: R) -> Model {
             ($v:expr) => {{
                 let v = $v.v;
                 let t = match $v.t {
-                    Some(n) => texture_coordinates[n],
-                    None => TextureCoordinates { u: -1.0, v: -1.0, w: -1.0 }
+                    Some(n) if read_uvw => texture_coordinates[n],
+                    _ => TextureCoordinates { u: -1.0, v: -1.0, w: -1.0 }
                 };
                 let n = match $v.n {
                     Some(n) => vertex_normals[n],

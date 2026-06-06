@@ -53,7 +53,7 @@ static SCENE: OnceLock<Mutex<SceneBuffers>> = OnceLock::new();
 
 pub fn init() {
     //let mut model = read_obj(File::open(Path::new("src/cube.obj")).unwrap());
-    let mut model = read_obj(File::open(Path::new("src/DinklageLikenessSculpt.obj")).unwrap());
+    let mut model = read_obj(File::open(Path::new("src/DinklageLikenessSculpt.obj")).unwrap(), false);
     model.xs.pad_to_mm256();
     model.ys.pad_to_mm256();
     model.zs.pad_to_mm256();
