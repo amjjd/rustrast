@@ -195,7 +195,7 @@ fn draw_tile<T : Send + Copy>(
             let mut xmax = xmaxs[it];
             let mut ymax = ymaxs[it];
             let iarea = iareas[it];
-            let tl = tls[i];
+            let tl = tls[it];
 
             // clip to the tile
             xmin = xmin.max(tile_xmin);
