@@ -9,7 +9,7 @@ Chasing shadows
 ---------------
 
 When I was around 15, I ran a demo of an upcoming game called [Into the
-Shadows](https://www.youtube.com/watch?v=TrPdiapzhZQ) from a cover disc and had my mid blown. I decided the game engine
+Shadows](https://www.youtube.com/watch?v=TrPdiapzhZQ) from a cover disc and had my mind blown. I decided the game engine
 I was writing would have real time shadows. Of course, that game engine was never written; the typical distractions of a
 teenage boy intervened. But still, real time shadows always seemed to be beyond the horizon of what I could do. I can't
 remember what my second edition of [Computer Graphics Principles and
@@ -110,7 +110,7 @@ the higher resolution shadow map, was pretty good:
 ![Pretty nice shadows](./screenshot3.png)
 
 Unfortunately, this is a bit slow. At full screen, simple Gouraud shading took about 8ms per frame in total. With a
-512x512 shadow map and no filtering, it's 15ms, and with a 1024x1024 shadow map and PCF, it's 18ms. Still, the
+512x512 shadow map and no filtering, it's 15ms, and with a 1024x1024 shadow map and PCF, it's close to 19ms. Still, the
 difference in realism is well worth it, and watching the shadows move as the model rotates is mesmerising.
 
 Ambient jazz

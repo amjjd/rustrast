@@ -57,7 +57,7 @@ struct SceneBuffers {
 
 static SCENE: OnceLock<Mutex<SceneBuffers>> = OnceLock::new();
 
-const SHADOW_MAP_SIZE: usize = 512;
+const SHADOW_MAP_SIZE: usize = 1024;
 
 pub fn init() {
     //let mut model = read_obj(File::open(Path::new("src/cube.obj")).unwrap(), false);
@@ -503,7 +503,7 @@ pub fn draw(buffer: *mut RGBQUAD, width: usize, height: usize, stride: usize) {
     // one distant light source, coming from top right behind the camera
     let light_direction: CartesianVector = CartesianVector {x: 1.0, y: 1.0, z: 1.0}.normalised();
     let light_intensity = 0.3;
-    let shadow_attenuation = 0.90;
+    let shadow_attenuation = 0.8;
     let ambient_intensity = 0.05;
     // to transform vertex normals
     let it_world = world.inverted_transposed_tl_3x3().unwrap();
