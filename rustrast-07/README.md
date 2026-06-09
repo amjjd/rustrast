@@ -215,9 +215,9 @@ frame to 15ms. The most obvious culprit, to me, looked like loading and broadcas
 trivial to change the fragment shader interface to have it accept three of a generic extras type, passed through from
 the code that called the triangle fill routine. That helped a lot, bringing the fill time down to about 8.5ms per frame.
 By commenting out parts, I could tell that about 1ms of that was due to interpolating the intensity, and about 3ms due
-to converting the intensity to a colour. First I removed rounding which gained about 1ms. Next, I tried removing the
-clamping between 0 and 1, because as it stands, I thought it shouldn't be possible to get out of bounds values. However,
-it immediately crashed.
+to converting the intensity to a colour. First I removed rounding (I thought `_mm256_cvtps_epi32` truncated) which
+gained about 1ms. Next, I tried removing the clamping between 0 and 1, because as it stands, I thought it shouldn't be
+possible to get out of bounds values. However, it immediately crashed.
 
 Some debugging later and I realised that the fragment shader is called for pixels outside the triangle by design: even
 if I were to add a test for an entire span of 8 being outside, there would still be pixels outside the triangle in the
