@@ -11,23 +11,23 @@ mod obj;
 mod transformation;
 #[macro_use]
 mod rasterisation;
+#[macro_use]
+mod binning;
 mod shaders;
 
 use time::*;
 use simd_vec::*;
 use obj::*;
 use transformation::*;
+use binning::*;
 use shaders::*;
 use rasterisation::*;
 
 // used by main to ensure the buffer is big enough for whatever SIMD operations we use
 pub const BACK_BUFFER_ALIGNMENT: usize = 8;
 
-const TILE_WIDTH: usize = 128; // must be a multiple of BACK_BUFFER_ALIGNMENT
-const TILE_HEIGHT: usize = 128;
-
-// my machine stops showing improvement above 4 threads
-static NUM_BIN_THREADS: usize = 4;
+pub const TILE_WIDTH: usize = 128; // must be a multiple of BACK_BUFFER_ALIGNMENT
+pub const TILE_HEIGHT: usize = 128;
 
 // more hackery to avoid managing memory; these are all initialised based on the loaded model
 struct SceneBuffers {
@@ -49,7 +49,9 @@ struct SceneBuffers {
     xmaxs: RefCell<SimdVec<f32>>,
     ymaxs: RefCell<SimdVec<f32>>,
     iareas: RefCell<SimdVec<f32>>,
-    tls: RefCell<Vec<u8>>,
+    tl0s: RefCell<Vec<u8>>,
+    tl1s: RefCell<Vec<u8>>,
+    tl2s: RefCell<Vec<u8>>,
     // for each binning thread, each tile has a list of triangles
     tile_triangles: RefCell<[Vec<Vec<u32>>; NUM_BIN_THREADS]>,
     depth: RefCell<Vec<f32>>
@@ -92,7 +94,9 @@ pub fn init() {
         xmaxs: RefCell::new(iter::repeat(0f32).take(num_triangles).collect()),
         ymaxs: RefCell::new(iter::repeat(0f32).take(num_triangles).collect()),
         iareas: RefCell::new(iter::repeat(0f32).take(num_triangles).collect()),
-        tls: RefCell::new(iter::repeat(0u8).take(num_triangles).collect()),
+        tl0s: RefCell::new(iter::repeat(0u8).take(num_triangles).collect()),
+        tl1s: RefCell::new(iter::repeat(0u8).take(num_triangles).collect()),
+        tl2s: RefCell::new(iter::repeat(0u8).take(num_triangles).collect()),
         tile_triangles: RefCell::new(array::from_fn(|_| Vec::new())),
         depth: RefCell::new(Vec::new())
     };
@@ -119,74 +123,6 @@ fn vertices<TV : Send + Copy>(
     }
 }
 
-static BIN_WORKERS: Lazy<Mutex<Pool>> = Lazy::new(|| Mutex::new(Pool::new(NUM_BIN_THREADS as u32)));
-
-fn bin_triangles(tile_triangles_out: &mut [Vec<Vec<u32>>; NUM_BIN_THREADS], num_triangles: u32, bounds: [&SimdVec<f32>; 4], iareas: &SimdVec<f32>, num_tiles_x: usize, num_tiles_y: usize) {
-    // this should only allocate heavily during the first few frames
-    let num_tiles = num_tiles_x * num_tiles_y;
-    for i in 0..NUM_BIN_THREADS {
-        if tile_triangles_out[i].len() > num_tiles {
-            tile_triangles_out[i].truncate(num_tiles);
-        }
-        else {
-            // somewhat pessimistic guess
-            let initial_capacity = (num_triangles as usize / num_tiles) * 4;
-            for _ in tile_triangles_out[i].len()..num_tiles {
-                tile_triangles_out[i].push(Vec::with_capacity(initial_capacity));
-            }
-        }
-
-        for j in 0..num_tiles {
-            // doesn't affect capacity
-            tile_triangles_out[i][j].truncate(0);
-        }
-    }
-
-    let num_chunks = NUM_BIN_THREADS as u32;
-    let chunk_size = (num_triangles + num_chunks - 1) / num_chunks;
-    let xmins = bounds[0];
-    let ymins = bounds[1];
-    let xmaxs = bounds[2];
-    let ymaxs = bounds[3];
-
-    let mut pool = BIN_WORKERS.lock().unwrap();
-    pool.scoped(|scope| {
-        let mut chunk_start = 0;
-        for out in tile_triangles_out.iter_mut() {
-            let start = chunk_start;
-            scope.execute(move || {
-                for i in start..((start + chunk_size).min(num_triangles)) {
-                    let it = i as usize;
-                    if iareas[it] < 0.0 {
-                        // cull back-facing triangles
-                        continue;
-                    }
-
-                    // a triangle is in the tile(s) between each of the corners of its bounding box is in
-                    let left = (xmins[it] as usize / TILE_WIDTH).max(0);
-                    let top = (ymins[it] as usize / TILE_HEIGHT).max(0);
-                    // bounds are integers, so casting is OK
-                    let right = (xmaxs[it] as usize / TILE_WIDTH).min(num_tiles_x - 1);
-                    let bottom = (ymaxs[it] as usize / TILE_HEIGHT).min(num_tiles_y - 1);
-
-                    let mut row_start = top * num_tiles_x;
-                    for _ in top..=bottom {
-                        let l = row_start + left;
-                        let r = row_start + right;
-                        for t in l..=r {
-                            out[t].push(i);
-                        }
-
-                        row_start += num_tiles_x;
-                    }
-                }
-            });
-
-            chunk_start += chunk_size;
-        }
-    });
-}
-
 // enables bypassing safeness checks when multithreading
 struct Tile<'a> {
     colour: Buffer<'a, RGBQUAD>,
@@ -198,23 +134,20 @@ struct Tile<'a> {
 }
 
 // my machine stops showing improvement above 4 threads
-static NUM_DRAW_THREADS: u32 = 4;
+const NUM_DRAW_THREADS: u32 = 4;
 static DRAW_WORKERS: Lazy<Mutex<Pool>> = Lazy::new(|| Mutex::new(Pool::new(NUM_DRAW_THREADS)));
 
 fn draw_tile<TE, const F: bool, TF: Send + Copy>(
         tile: &mut Tile, 
         model: &Model, xs: &SimdVec<f32>, ys: &SimdVec<f32>, zs: &SimdVec<f32>, iws: &SimdVec<f32>,
-        bounds: [&SimdVec<f32>; 4], iareas: &SimdVec<f32>, tls: &Vec<u8>, 
+        xmins: &SimdVec<f32>, ymins: &SimdVec<f32>, xmaxs: &SimdVec<f32>, ymaxs: &SimdVec<f32>,
+        iareas: &SimdVec<f32>, tl0s: &Vec<u8>, tl1s: &Vec<u8>, tl2s: &Vec<u8>,
         triangles: [&Vec<u32>; NUM_BIN_THREADS], 
         extras: &TE, vertex_extra: fn(&TE, usize) -> TF, fragment_shader: &impl AvxFragmentShader<F, TF>) {
     let tile_xmin = tile.xmin as f32;
     let tile_ymin = tile.ymin as f32;
     let tile_xmax = tile.xmax as f32;
     let tile_ymax = tile.ymax as f32;
-    let xmins = &bounds[0];
-    let ymins = &bounds[1];
-    let xmaxs = &bounds[2];
-    let ymaxs = &bounds[3];
 
     for i in 0..NUM_BIN_THREADS {
         for j in 0..triangles[i].len() {
@@ -224,7 +157,9 @@ fn draw_tile<TE, const F: bool, TF: Send + Copy>(
             let mut xmax = xmaxs[it];
             let mut ymax = ymaxs[it];
             let iarea = iareas[it];
-            let tl = tls[it];
+            let tl0 = tl0s[it] != 0;
+            let tl1 = tl1s[it] != 0;
+            let tl2 = tl2s[it] != 0;
 
             // clip to the tile
             xmin = xmin.max(tile_xmin);
@@ -249,7 +184,7 @@ fn draw_tile<TE, const F: bool, TF: Send + Copy>(
             let v2 = model.trianglev2s[it] as usize;    
             fill_triangle(&mut tile.colour, &mut tile.depth, it,
                 xmin, ymin, xmax, ymax, x0, y0, z0, iw0, x1, y1, z1, iw1, x2, y2, z2, iw2,
-                vertex_extra(extras, v0), vertex_extra(extras, v1), vertex_extra(extras, v2), iarea, tl, fragment_shader);
+                vertex_extra(extras, v0), vertex_extra(extras, v1), vertex_extra(extras, v2), iarea, tl0, tl1, tl2, fragment_shader);
         }
     }
 }
@@ -272,24 +207,24 @@ fn draw_triangles<TE : Send + Sync, const F: bool, TF: Send + Copy>(
         let xmaxs_out = &mut *scene.xmaxs.borrow_mut();
         let ymaxs_out = &mut *scene.ymaxs.borrow_mut();
         let iareas_out = &mut *scene.iareas.borrow_mut();
-        let tls_out = &mut *scene.tls.borrow_mut();
-        time(format!("{}Calculated {} sets of properties", log_prefix, num_triangles), || {
-            calculate_all_properties(xmins_out, ymins_out,xmaxs_out, ymaxs_out, iareas_out, tls_out, model, xs, ys)
-        });
-    }
-    let bounds = [&*scene.xmins.borrow(), &*scene.ymins.borrow(), &*scene.xmaxs.borrow(), &*scene.ymaxs.borrow()];
-    let iareas = &*scene.iareas.borrow();
-    let tls = &*scene.tls.borrow();
-
-    let num_tiles_x = (stride + TILE_WIDTH - 1) / TILE_WIDTH;
-    let num_tiles_y = (height + TILE_HEIGHT - 1) / TILE_HEIGHT;
-
-    {
+        let tl0s_out = &mut *scene.tl0s.borrow_mut();
+        let tl1s_out = &mut *scene.tl1s.borrow_mut();
+        let tl2s_out = &mut *scene.tl2s.borrow_mut();
         let tile_triangles_out = &mut *scene.tile_triangles.borrow_mut();
         time(format!("{}Binned {} triangles", log_prefix, num_triangles), || {
-            bin_triangles(tile_triangles_out, num_triangles, bounds, iareas, num_tiles_x, num_tiles_y);
+            bin_triangles(
+                xmins_out, ymins_out, xmaxs_out, ymaxs_out, iareas_out, tl0s_out, tl1s_out, tl2s_out, tile_triangles_out,
+                model, xs, ys, stride, height);
         });
     }
+    let xmins = &*scene.xmins.borrow();
+    let ymins = &*scene.ymins.borrow();
+    let xmaxs = &*scene.xmaxs.borrow();
+    let ymaxs = &*scene.ymaxs.borrow();
+    let iareas = &*scene.iareas.borrow();
+    let tl0s = &*scene.tl0s.borrow();
+    let tl1s = &*scene.tl1s.borrow();
+    let tl2s = &*scene.tl2s.borrow();
     let tile_triangles = scene.tile_triangles.borrow();
 
     let depth = &mut *depth.borrow_mut();
@@ -338,7 +273,7 @@ fn draw_triangles<TE : Send + Sync, const F: bool, TF: Send + Copy>(
                     let triangles = array::from_fn(|i| &tile_triangles[i][i_tile]);
 
                     scope.execute(move || {
-                        draw_tile(&mut tile, model, xs, ys, zs, iws, bounds, iareas, tls, triangles, extras, vertex_extra, fragment_shader);
+                        draw_tile(&mut tile, model, xs, ys, zs, iws, xmins, ymins, xmaxs, ymaxs, iareas, tl0s, tl1s, tl2s, triangles, extras, vertex_extra, fragment_shader);
                     });
 
                     xmin += TILE_WIDTH;

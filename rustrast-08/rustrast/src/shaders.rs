@@ -52,7 +52,7 @@ pub trait AvxFragmentShader<const F: bool, T : Copy> : Send + Sync {
 }
 
 // my machine stops showing improvement above four threads
-static NUM_VERTEX_SHADER_THREADS: u32 = 4;
+const NUM_VERTEX_SHADER_THREADS: u32 = 4;
 static VERTEX_SHADER_WORKERS: Lazy<Mutex<Pool>> = Lazy::new(|| Mutex::new(Pool::new(NUM_VERTEX_SHADER_THREADS)));
 
 // This isn't suitable for production; in particular there's no opportunity to clip
@@ -67,18 +67,32 @@ pub fn execute_vertex_shader<T : Send + Copy>(
     debug_assert!(zs_out.len() % 8 == 0);
     debug_assert!(iws_out.len() % 8 == 0);
     debug_assert!(extras_out.len() % 8 == 0);
-    
-    let num_chunks = NUM_VERTEX_SHADER_THREADS;
-    // maintain 128 byte alignment for caching
-    let chunk_size = (((model.num_vertices / num_chunks) / 32) * 4) as usize;
-    let mut chunk_start = 0;
 
-    // not using built in chunks to allow the last chunk to be a bit bigger
     let xs = model.xs.as_m256();
     let ys = model.ys.as_m256();
     let zs = model.zs.as_m256();
     let ws = model.ws.as_m256();
+    
+    let num_chunks = NUM_VERTEX_SHADER_THREADS;
+    // maintain 128 byte alignment for caching
+    let chunk_size = (((model.num_vertices / num_chunks) / 32) * 4) as usize;
+    if chunk_size == 0 {
+        // not worth threading
+        let xs_out = xs_out.as_m256_mut();
+        let ys_out = ys_out.as_m256_mut();
+        let zs_out = zs_out.as_m256_mut();
+        let iws_out = iws_out.as_m256_mut();
+        unsafe {
+            if shader.vertex(0, xs_out, ys_out, zs_out, iws_out, extras_out, xs, ys, zs, ws) {
+                vertices_chunk_to_cartesian(xs_out, ys_out, zs_out, iws_out);
+            }
+        }
+        return;
+    }
+    
+    let mut chunk_start = 0;
 
+    // not using built in chunks to allow the last chunk to be a bit bigger
     let mut pool = VERTEX_SHADER_WORKERS.lock().unwrap();
     pool.scoped(|scope| {
         let mut xs_out = xs_out.as_m256_mut();
