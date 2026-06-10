@@ -24,7 +24,8 @@ use shaders::*;
 use rasterisation::*;
 
 // used by main to ensure the buffer is big enough for whatever SIMD operations we use
-pub const BACK_BUFFER_ALIGNMENT: usize = 8;
+pub const BACK_BUFFER_X_ALIGNMENT: usize = 4;
+pub const BACK_BUFFER_Y_ALIGNMENT: usize = 2;
 
 pub const TILE_WIDTH: usize = 128; // must be a multiple of BACK_BUFFER_ALIGNMENT
 pub const TILE_HEIGHT: usize = 128;
@@ -190,7 +191,7 @@ fn draw_tile<TE, const F: bool, TF: Send + Copy>(
 }
 
 fn draw_triangles<TE : Send + Sync, const CULL_MODE: i32, const EXECUTE_FRAGMENT_SHADER: bool, TF: Send + Copy>(
-        buffer: *mut RGBQUAD, depth: &RefCell<Vec<f32>>, height: usize, stride: usize,
+        buffer: *mut RGBQUAD, depth: &RefCell<Vec<f32>>, stride: usize, lines: usize, 
         scene: &SceneBuffers, xs: &RefCell<SimdVec<f32>>, ys: &RefCell<SimdVec<f32>>, zs: &RefCell<SimdVec<f32>>, iws: &RefCell<SimdVec<f32>>,
         cull_mode: CullMode<CULL_MODE>, extras: &TE, vertex_extra: fn(&TE, usize) -> TF, fragment_shader: &impl AvxFragmentShader<EXECUTE_FRAGMENT_SHADER, TF>, log_prefix: &str) {
     let model = &scene.model;
@@ -214,7 +215,7 @@ fn draw_triangles<TE : Send + Sync, const CULL_MODE: i32, const EXECUTE_FRAGMENT
         time(format!("{}Binned {} triangles", log_prefix, num_triangles), || {
             bin_triangles(
                 xmins_out, ymins_out, xmaxs_out, ymaxs_out, iareas_out, tl0s_out, tl1s_out, tl2s_out, tile_triangles_out,
-                model, xs, ys, stride, height, cull_mode);
+                model, xs, ys, stride, lines, cull_mode);
         })
     }
     let xmins = &*scene.xmins.borrow();
@@ -229,15 +230,15 @@ fn draw_triangles<TE : Send + Sync, const CULL_MODE: i32, const EXECUTE_FRAGMENT
 
     let depth = &mut *depth.borrow_mut();
     time(format!("{}Cleared depth buffer", log_prefix), ||{
-        if depth.len() > stride * height {
-            depth.truncate(stride * height);
+        if depth.len() > stride * lines {
+            depth.truncate(stride * lines);
             depth.fill(0.0);
         }
         else {
             depth.fill(0.0);
-            if depth.len() < (stride * height) {
-                depth.reserve_exact((stride * height) - depth.len());
-                depth.extend(iter::repeat(0.0).take((stride * height) - depth.len()));
+            if depth.len() < (stride * lines) {
+                depth.reserve_exact((stride * lines) - depth.len());
+                depth.extend(iter::repeat(0.0).take((stride * lines) - depth.len()));
             }
         }
     });
@@ -248,18 +249,18 @@ fn draw_triangles<TE : Send + Sync, const CULL_MODE: i32, const EXECUTE_FRAGMENT
             let mut ymin = 0;
             let mut i_tile = 0;
 
-            while ymin < height  {
+            while ymin < lines  {
                 let mut xmin = 0;
                 while xmin < stride {
                     let mut tile = Tile {
                         colour: Buffer {
-                            buffer: unsafe { from_raw_parts_mut(buffer, stride * height) },
+                            buffer: unsafe { from_raw_parts_mut(buffer, stride * lines) },
                             left: 0,
                             top: 0,
                             stride
                         },
                         depth: Buffer {
-                            buffer: unsafe { from_raw_parts_mut(depth.as_mut_ptr(), stride * height) },
+                            buffer: unsafe { from_raw_parts_mut(depth.as_mut_ptr(), stride * lines) },
                             left: 0,
                             top: 0,
                             stride: stride
@@ -267,7 +268,7 @@ fn draw_triangles<TE : Send + Sync, const CULL_MODE: i32, const EXECUTE_FRAGMENT
                         xmin,
                         ymin,
                         xmax: (xmin + TILE_WIDTH).min(stride),
-                        ymax: (ymin + TILE_HEIGHT).min(height)
+                        ymax: (ymin + TILE_HEIGHT).min(lines)
                     };
 
                     let triangles = array::from_fn(|i| &tile_triangles[i][i_tile]);
@@ -407,7 +408,7 @@ impl AvxFragmentShader<RUN_FRAGMENT_SHADER, FragmentExtra> for FragmentShader<'_
     }
 }
 
-pub fn draw(buffer: *mut RGBQUAD, width: usize, height: usize, stride: usize) {
+pub fn draw(buffer: *mut RGBQUAD, width: usize, height: usize, stride: usize, lines: usize) {
     let scene = scene_buffers().lock().unwrap();
     let model = &scene.model;
 
@@ -478,7 +479,7 @@ pub fn draw(buffer: *mut RGBQUAD, width: usize, height: usize, stride: usize) {
     };
     let fragment_shader = FragmentShader::new(light_intensity, shadow_attenuation, ambient_intensity, shadow_map.as_slice());
     draw_triangles(
-        buffer, &scene.depth, height, stride,
+        buffer, &scene.depth, stride, lines,
         &scene, &scene.xs, &scene.ys, &scene.zs, &scene.iws,
         CULL_BACK_FACING, &(diffuse_intensities.as_slice(), shadow_map_xs.as_slice(), shadow_map_ys.as_slice(), shadow_map_zs.as_slice()), vertex_extra,
         &fragment_shader, "");

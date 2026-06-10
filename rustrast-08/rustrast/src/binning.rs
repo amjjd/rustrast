@@ -179,11 +179,11 @@ pub fn bin_triangles<const CULL_MODE: i32>(
         xmins_out: &mut SimdVec<f32>, ymins_out: &mut SimdVec<f32>, xmaxs_out: &mut SimdVec<f32>, ymaxs_out: &mut SimdVec<f32>,
         iareas_out: &mut SimdVec<f32>, tl0s_out: &mut Vec<u8>, tl1s_out: &mut Vec<u8>, tl2s_out: &mut Vec<u8>,
         tile_triangles_out: &mut [Vec<Vec<u32>>; NUM_BIN_THREADS],
-        model: &Model, xs: &SimdVec<f32>, ys: &SimdVec<f32>, stride: usize, height: usize, _cull_mode: CullMode<CULL_MODE>) {
+        model: &Model, xs: &SimdVec<f32>, ys: &SimdVec<f32>, stride: usize, lines: usize, _cull_mode: CullMode<CULL_MODE>) {
 
     // this should only allocate heavily during the first few frames
     let num_tiles_x = (stride + super::TILE_WIDTH - 1) / super::TILE_WIDTH;
-    let num_tiles_y = (height + super::TILE_HEIGHT - 1) / super::TILE_HEIGHT;
+    let num_tiles_y = (lines + super::TILE_HEIGHT - 1) / super::TILE_HEIGHT;
     let num_tiles = num_tiles_x * num_tiles_y;
     for i in 0..NUM_BIN_THREADS {
         if tile_triangles_out[i].len() > num_tiles {

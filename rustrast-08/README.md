@@ -110,7 +110,7 @@ the higher resolution shadow map, was pretty good:
 ![Pretty nice shadows](./screenshot3.png)
 
 Unfortunately, this is a bit slow. At full screen, simple Gouraud shading took about 8ms per frame in total. With a
-512x512 shadow map and no filtering, it's 15ms, and with a 1024x1024 shadow map and PCF, it's close to 19ms. Still, the
+512x512 shadow map and no filtering, it's 15ms, and with a 1024x1024 shadow map and PCF, it's close to 18ms. Still, the
 difference in realism is well worth it, and watching the shadows move as the model rotates is mesmerising.
 
 Ambient jazz
@@ -129,5 +129,11 @@ Rusting away
 I had to take a step backwards in correctness this time: the depth buffer no longer uses safe chunks, but is now passed
 to the tile threads unsafely just like the colour buffer. This is to simplify reading from it when it's used as a shadow
 map. I'm comfortable with that: the code is safe as multiple threads are using disjoint parts of the buffers.
+
+I took some time after finishing to revisit some parts of the code. I moved binning into its own module and combined the
+properties and binning steps. By converting more of it to explicit SIMD I shaved off a few tenths. Much bigger was
+changing from rasterising 8x1 pixel spans to 4x2 pixel blocks. While this means the reads and stores have more code, the
+tighter tolerances around the edges of triangles leading to fewer fragment shader calls was helpful: about 1.5ms per
+frame, bringing the total to just over 15ms.
 
 Next, it's time to get rid of stairstep edges by [anti-aliasing](../rustrast-09/).

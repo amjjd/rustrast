@@ -128,8 +128,8 @@ unsafe extern "system" fn window_proc(hwnd: HWND, msg: u32, w_param: WPARAM, l_p
             back_buffer.dc = CreateCompatibleDC(None);
 
             // so the start of each row is aligned for easier SIMD
-            back_buffer.width = ((back_buffer.client_area_width + BACK_BUFFER_ALIGNMENT - 1) / BACK_BUFFER_ALIGNMENT) * BACK_BUFFER_ALIGNMENT;
-            back_buffer.height = back_buffer.client_area_height;
+            back_buffer.width = ((back_buffer.client_area_width + BACK_BUFFER_X_ALIGNMENT - 1) / BACK_BUFFER_X_ALIGNMENT) * BACK_BUFFER_X_ALIGNMENT;
+            back_buffer.height = ((back_buffer.client_area_height + BACK_BUFFER_Y_ALIGNMENT - 1) / BACK_BUFFER_Y_ALIGNMENT) * BACK_BUFFER_Y_ALIGNMENT;
 
             let bitmap_info = BITMAPINFO {
                 bmiHeader: BITMAPINFOHEADER {
@@ -178,7 +178,7 @@ unsafe extern "system" fn window_proc(hwnd: HWND, msg: u32, w_param: WPARAM, l_p
 
             // draw
             time("Drew to back buffer", || {
-                draw(back_buffer.buffer, back_buffer.client_area_width, back_buffer.client_area_height, back_buffer.width)
+                draw(back_buffer.buffer, back_buffer.client_area_width, back_buffer.client_area_height, back_buffer.width, back_buffer.height);
             });
 
             // copy to screen
