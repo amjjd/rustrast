@@ -34,7 +34,7 @@ pub trait AvxVertexShader<T : Send + Copy> : Send + Sync {
 pub const RUN_FRAGMENT_SHADER: bool = true;
 pub const SKIP_FRAGMENT_SHADER: bool = false;
 
-pub trait AvxFragmentShader<const F: bool, T : Copy> : Send + Sync {
+pub trait AvxFragmentShader<const EXECUTE_FRAGMENT_SHADER: bool, T : Copy> : Send + Sync {
     /**
      * Calculate the colour of the given 8 fragments.
      * 

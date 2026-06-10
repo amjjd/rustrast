@@ -47,7 +47,7 @@ fn add_to_bins(tile_triangles: &mut Vec<Vec<u32>>, left: usize, top: usize, righ
     }
 }
 
-unsafe fn bin_triangles_chunk(
+unsafe fn bin_triangles_chunk<const CULL_MODE: i32>(
         xmins_out: &mut [__m256], ymins_out: &mut [__m256], xmaxs_out: &mut [__m256], ymaxs_out: &mut [__m256],
         iareas_out: &mut [__m256], tl0s_out: &mut [u8], tl1s_out: &mut [u8], tl2s_out: &mut [u8],
         tile_triangles_out: &mut Vec<Vec<u32>>,
@@ -89,7 +89,7 @@ unsafe fn bin_triangles_chunk(
 
         let area = edge_function!(x0, y0, x1, y1, x2, y2);
         iareas_out[i] = _mm256_rcp_ps(area);
-        let cull = _mm256_castps_si256(_mm256_cmp_ps(area, zero, _CMP_LE_OQ));
+        let cull = _mm256_castps_si256(_mm256_cmp_ps(area, zero, CULL_MODE));
 
         let tl0 = is_top_or_left!(x1, y1, x2, y2);
         let tl1 = is_top_or_left!(x2, y2, x0, y0);
@@ -129,7 +129,7 @@ unsafe fn bin_triangles_chunk(
     }
 }
 
-fn bin_triangle(
+fn bin_triangle<const CULL_MODE: i32>(
         xmins_out: &mut SimdVec<f32>, ymins_out: &mut SimdVec<f32>, xmaxs_out: &mut SimdVec<f32>, ymaxs_out: &mut SimdVec<f32>,
         iareas_out: &mut SimdVec<f32>, tl0s_out: &mut Vec<u8>, tl1s_out: &mut Vec<u8>, tl2s_out: &mut Vec<u8>,
         tile_triangles_out: &mut Vec<Vec<u32>>,
@@ -151,7 +151,7 @@ fn bin_triangle(
     tl1s_out[it] = is_top_or_left(x2, y2, x0, y0);
     tl2s_out[it] = is_top_or_left(x0, y0, x1, y1);
 
-    if area > 0.0 {
+    if CULL_MODE == _CMP_EQ_OQ || (CULL_MODE == _CMP_LE_OQ && area > 0.0) || (CULL_MODE == _CMP_GE_OQ && area < 0.0) {
         let left = ((xmin / TILE_WIDTH as f32) as usize).max(0);
         let top = ((ymin / TILE_HEIGHT as f32) as usize).max(0);
         let right = ((xmax / TILE_WIDTH as f32) as usize).min(num_tiles_x - 1);
@@ -164,11 +164,22 @@ fn bin_triangle(
 pub const NUM_BIN_THREADS: usize = 4;
 static BIN_WORKERS: Lazy<Mutex<Pool>> = Lazy::new(|| Mutex::new(Pool::new(NUM_BIN_THREADS as u32)));
 
-pub fn bin_triangles(
+pub struct CullMode<const T: i32> {
+    // prevent construction by others
+    _private: ()
+}
+#[allow(dead_code)]
+pub const CULL_NONE: CullMode<_CMP_EQ_OQ> = CullMode{_private: ()};
+#[allow(dead_code)]
+pub const CULL_BACK_FACING: CullMode<_CMP_LE_OQ> = CullMode{_private: ()};
+#[allow(dead_code)]
+pub const CULL_FRONT_FACING: CullMode<_CMP_GE_OQ> = CullMode{_private: ()};
+
+pub fn bin_triangles<const CULL_MODE: i32>(
         xmins_out: &mut SimdVec<f32>, ymins_out: &mut SimdVec<f32>, xmaxs_out: &mut SimdVec<f32>, ymaxs_out: &mut SimdVec<f32>,
         iareas_out: &mut SimdVec<f32>, tl0s_out: &mut Vec<u8>, tl1s_out: &mut Vec<u8>, tl2s_out: &mut Vec<u8>,
         tile_triangles_out: &mut [Vec<Vec<u32>>; NUM_BIN_THREADS],
-        model: &Model, xs: &SimdVec<f32>, ys: &SimdVec<f32>, stride: usize, height: usize) {
+        model: &Model, xs: &SimdVec<f32>, ys: &SimdVec<f32>, stride: usize, height: usize, _cull_mode: CullMode<CULL_MODE>) {
 
     // this should only allocate heavily during the first few frames
     let num_tiles_x = (stride + super::TILE_WIDTH - 1) / super::TILE_WIDTH;
@@ -205,7 +216,7 @@ pub fn bin_triangles(
         // do the SIMD part in one thread
         let chunk_size = model.num_triangles as usize / 8;
         unsafe { 
-            bin_triangles_chunk(
+            bin_triangles_chunk::<CULL_MODE>(
                 xmins_out.as_m256_mut(), ymins_out.as_m256_mut(), xmaxs_out.as_m256_mut(), ymaxs_out.as_m256_mut(),
                 iareas_out.as_m256_mut(), tl0s_out.as_mut_slice(), tl1s_out.as_mut_slice(), tl2s_out.as_mut_slice(),
                 &mut tile_triangles_out[0],
@@ -241,7 +252,7 @@ pub fn bin_triangles(
                 let tile_triangles_out_chunk = tile_triangles_out_chunks.next().unwrap();
                 let vs_offset = chunk_start;
                 scope.execute(move || unsafe {
-                    bin_triangles_chunk(
+                    bin_triangles_chunk::<CULL_MODE>(
                         xmins_out_chunk, ymins_out_chunk, xmaxs_out_chunk, ymaxs_out_chunk,
                         iareas_out_chunk, tl0s_out_chunk, tl1s_out_chunk, tl2s_out_chunk,
                         tile_triangles_out_chunk,
@@ -258,7 +269,7 @@ pub fn bin_triangles(
 
     // do any leftovers sequentially
     for it in (chunk_start * 8 as usize)..(model.num_triangles as usize) {
-        bin_triangle(
+        bin_triangle::<CULL_MODE>(
             xmins_out, ymins_out, xmaxs_out, ymaxs_out, iareas_out, tl0s_out, tl1s_out, tl2s_out, &mut tile_triangles_out[NUM_BIN_THREADS - 1],
             it, xs[model.trianglev0s[it] as usize], ys[model.trianglev0s[it] as usize], xs[model.trianglev1s[it] as usize], ys[model.trianglev1s[it] as usize], xs[model.trianglev2s[it] as usize], ys[model.trianglev2s[it] as usize],
             num_tiles_x, num_tiles_y);

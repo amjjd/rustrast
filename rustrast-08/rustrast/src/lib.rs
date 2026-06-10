@@ -189,10 +189,10 @@ fn draw_tile<TE, const F: bool, TF: Send + Copy>(
     }
 }
 
-fn draw_triangles<TE : Send + Sync, const F: bool, TF: Send + Copy>(
+fn draw_triangles<TE : Send + Sync, const CULL_MODE: i32, const EXECUTE_FRAGMENT_SHADER: bool, TF: Send + Copy>(
         buffer: *mut RGBQUAD, depth: &RefCell<Vec<f32>>, height: usize, stride: usize,
         scene: &SceneBuffers, xs: &RefCell<SimdVec<f32>>, ys: &RefCell<SimdVec<f32>>, zs: &RefCell<SimdVec<f32>>, iws: &RefCell<SimdVec<f32>>,
-        extras: &TE, vertex_extra: fn(&TE, usize) -> TF, fragment_shader: &impl AvxFragmentShader<F, TF>, log_prefix: &str) {
+        cull_mode: CullMode<CULL_MODE>, extras: &TE, vertex_extra: fn(&TE, usize) -> TF, fragment_shader: &impl AvxFragmentShader<EXECUTE_FRAGMENT_SHADER, TF>, log_prefix: &str) {
     let model = &scene.model;
     let num_triangles = model.num_triangles;
 
@@ -214,8 +214,8 @@ fn draw_triangles<TE : Send + Sync, const F: bool, TF: Send + Copy>(
         time(format!("{}Binned {} triangles", log_prefix, num_triangles), || {
             bin_triangles(
                 xmins_out, ymins_out, xmaxs_out, ymaxs_out, iareas_out, tl0s_out, tl1s_out, tl2s_out, tile_triangles_out,
-                model, xs, ys, stride, height);
-        });
+                model, xs, ys, stride, height, cull_mode);
+        })
     }
     let xmins = &*scene.xmins.borrow();
     let ymins = &*scene.ymins.borrow();
@@ -458,7 +458,7 @@ pub fn draw(buffer: *mut RGBQUAD, width: usize, height: usize, stride: usize) {
     draw_triangles(
         std::ptr::null_mut(), &scene.shadow_map, SHADOW_MAP_SIZE, SHADOW_MAP_SIZE,
         &scene, &scene.shadow_map_xs, &scene.shadow_map_ys, &scene.shadow_map_zs, &scene.shadow_map_iws,
-        &(), null_vertex_extra,
+        CULL_BACK_FACING, &(), null_vertex_extra,
         &NullFragmentShader::INSTANCE, "Shadow map: ");
     
     let vertex_shader = VertexShader::new(&model, &t, &light_direction, light_intensity, &it_world);
@@ -480,6 +480,6 @@ pub fn draw(buffer: *mut RGBQUAD, width: usize, height: usize, stride: usize) {
     draw_triangles(
         buffer, &scene.depth, height, stride,
         &scene, &scene.xs, &scene.ys, &scene.zs, &scene.iws,
-        &(diffuse_intensities.as_slice(), shadow_map_xs.as_slice(), shadow_map_ys.as_slice(), shadow_map_zs.as_slice()), vertex_extra,
+        CULL_BACK_FACING, &(diffuse_intensities.as_slice(), shadow_map_xs.as_slice(), shadow_map_ys.as_slice(), shadow_map_zs.as_slice()), vertex_extra,
         &fragment_shader, "");
 }

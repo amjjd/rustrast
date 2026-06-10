@@ -33,7 +33,7 @@ macro_rules! interpolate {
     }
 }
 
-fn fill_triangle_generic<const C0: i32, const C1: i32, const C2: i32, const F: bool, T : Copy>(
+fn fill_triangle_generic<const C0: i32, const C1: i32, const C2: i32, const EXECUTE_FRAGMENT_SHADER: bool, T : Copy>(
         colour: &mut Buffer<RGBQUAD>, depth: &mut Buffer<f32>,
         it: usize,
         xmin: f32, ymin: f32, xmax: f32, ymax: f32,
@@ -42,7 +42,7 @@ fn fill_triangle_generic<const C0: i32, const C1: i32, const C2: i32, const F: b
         x2: f32, y2: f32, z2: f32, iw2: f32,
         e0: T, e1: T, e2: T,
         iarea: f32,
-        fragment_shader: &impl AvxFragmentShader<F, T>) {
+        fragment_shader: &impl AvxFragmentShader<EXECUTE_FRAGMENT_SHADER, T>) {
     debug_assert!(colour.buffer.as_ptr().align_offset(32) == 0);
     debug_assert!(colour.stride % 8 == 0);
     debug_assert!(colour.left % 8 == 0);
@@ -128,7 +128,7 @@ fn fill_triangle_generic<const C0: i32, const C1: i32, const C2: i32, const F: b
                     let mask = _mm256_and_si256(inside_mask, depth_mask);
 
                     if _mm256_movemask_epi8(mask) != 0 {
-                        if F {
+                        if EXECUTE_FRAGMENT_SHADER {
                             let (filled_span, c_mask) = fragment_shader.fragment(it, w0, w1, w2, p_w0, p_w1, p_w2, e0, e1, e2, mask);
                             _mm256_maskstore_epi32(c_row.offset(xp) as *mut i32, c_mask, filled_span);
                         }
@@ -154,7 +154,7 @@ fn fill_triangle_generic<const C0: i32, const C1: i32, const C2: i32, const F: b
     }
 }
 
-pub fn fill_triangle<const F: bool, T : Copy>(
+pub fn fill_triangle<const EXECUTE_FRAGMENT_SHADER: bool, T : Copy>(
         colour: &mut Buffer<RGBQUAD>, depth: &mut Buffer<f32>,
         it: usize,
         xmin: f32, ymin: f32, xmax: f32, ymax: f32,
@@ -163,17 +163,17 @@ pub fn fill_triangle<const F: bool, T : Copy>(
         x2: f32, y2: f32, z2: f32, iw2: f32,
         e0: T, e1: T, e2: T,
         iarea: f32, tl0: bool, tl1: bool, tl2: bool,
-        fragment_shader: &impl AvxFragmentShader<F, T>) {
+        fragment_shader: &impl AvxFragmentShader<EXECUTE_FRAGMENT_SHADER, T>) {
 
     // NB - no TL or all TL edges are impossible, but are here for completeness
     match (tl0, tl1, tl2) {
-        (false, false, false) => fill_triangle_generic::<_CMP_GT_OQ, _CMP_GT_OQ, _CMP_GT_OQ, F, T>(colour, depth, it, xmin, ymin, xmax, ymax, x0, y0, z0, iw0, x1, y1, z1, iw1, x2, y2, z2, iw2, e0, e1, e2, iarea, fragment_shader),
-        (false, false, true) => fill_triangle_generic::<_CMP_GT_OQ, _CMP_GT_OQ, _CMP_GE_OQ, F, T>(colour, depth, it, xmin, ymin, xmax, ymax, x0, y0, z0, iw0, x1, y1, z1, iw1, x2, y2, z2, iw2, e0, e1, e2, iarea, fragment_shader),
-        (false, true, false) => fill_triangle_generic::<_CMP_GT_OQ, _CMP_GE_OQ, _CMP_GT_OQ, F, T>(colour, depth, it, xmin, ymin, xmax, ymax, x0, y0, z0, iw0, x1, y1, z1, iw1, x2, y2, z2, iw2, e0, e1, e2, iarea, fragment_shader),
-        (false, true, true) => fill_triangle_generic::<_CMP_GT_OQ, _CMP_GE_OQ, _CMP_GE_OQ, F, T>(colour, depth, it, xmin, ymin, xmax, ymax, x0, y0, z0, iw0, x1, y1, z1, iw1, x2, y2, z2, iw2, e0, e1, e2, iarea, fragment_shader),
-        (true, false, false) => fill_triangle_generic::<_CMP_GE_OQ, _CMP_GT_OQ, _CMP_GT_OQ, F, T>(colour, depth, it, xmin, ymin, xmax, ymax, x0, y0, z0, iw0, x1, y1, z1, iw1, x2, y2, z2, iw2, e0, e1, e2, iarea, fragment_shader),        
-        (true, false, true) => fill_triangle_generic::<_CMP_GE_OQ, _CMP_GT_OQ, _CMP_GE_OQ, F, T>(colour, depth, it, xmin, ymin, xmax, ymax, x0, y0, z0, iw0, x1, y1, z1, iw1, x2, y2, z2, iw2, e0, e1, e2, iarea, fragment_shader),
-        (true, true, false) => fill_triangle_generic::<_CMP_GE_OQ, _CMP_GE_OQ, _CMP_GT_OQ, F, T>(colour, depth, it, xmin, ymin, xmax, ymax, x0, y0, z0, iw0, x1, y1, z1, iw1, x2, y2, z2, iw2, e0, e1, e2, iarea, fragment_shader),
-        (true, true, true) => fill_triangle_generic::<_CMP_GE_OQ, _CMP_GE_OQ, _CMP_GE_OQ, F, T>(colour, depth, it, xmin, ymin, xmax, ymax, x0, y0, z0, iw0, x1, y1, z1, iw1, x2, y2, z2, iw2, e0, e1, e2, iarea, fragment_shader),
+        (false, false, false) => fill_triangle_generic::<_CMP_GT_OQ, _CMP_GT_OQ, _CMP_GT_OQ, EXECUTE_FRAGMENT_SHADER, T>(colour, depth, it, xmin, ymin, xmax, ymax, x0, y0, z0, iw0, x1, y1, z1, iw1, x2, y2, z2, iw2, e0, e1, e2, iarea, fragment_shader),
+        (false, false, true) => fill_triangle_generic::<_CMP_GT_OQ, _CMP_GT_OQ, _CMP_GE_OQ, EXECUTE_FRAGMENT_SHADER, T>(colour, depth, it, xmin, ymin, xmax, ymax, x0, y0, z0, iw0, x1, y1, z1, iw1, x2, y2, z2, iw2, e0, e1, e2, iarea, fragment_shader),
+        (false, true, false) => fill_triangle_generic::<_CMP_GT_OQ, _CMP_GE_OQ, _CMP_GT_OQ, EXECUTE_FRAGMENT_SHADER, T>(colour, depth, it, xmin, ymin, xmax, ymax, x0, y0, z0, iw0, x1, y1, z1, iw1, x2, y2, z2, iw2, e0, e1, e2, iarea, fragment_shader),
+        (false, true, true) => fill_triangle_generic::<_CMP_GT_OQ, _CMP_GE_OQ, _CMP_GE_OQ, EXECUTE_FRAGMENT_SHADER, T>(colour, depth, it, xmin, ymin, xmax, ymax, x0, y0, z0, iw0, x1, y1, z1, iw1, x2, y2, z2, iw2, e0, e1, e2, iarea, fragment_shader),
+        (true, false, false) => fill_triangle_generic::<_CMP_GE_OQ, _CMP_GT_OQ, _CMP_GT_OQ, EXECUTE_FRAGMENT_SHADER, T>(colour, depth, it, xmin, ymin, xmax, ymax, x0, y0, z0, iw0, x1, y1, z1, iw1, x2, y2, z2, iw2, e0, e1, e2, iarea, fragment_shader),
+        (true, false, true) => fill_triangle_generic::<_CMP_GE_OQ, _CMP_GT_OQ, _CMP_GE_OQ, EXECUTE_FRAGMENT_SHADER, T>(colour, depth, it, xmin, ymin, xmax, ymax, x0, y0, z0, iw0, x1, y1, z1, iw1, x2, y2, z2, iw2, e0, e1, e2, iarea, fragment_shader),
+        (true, true, false) => fill_triangle_generic::<_CMP_GE_OQ, _CMP_GE_OQ, _CMP_GT_OQ, EXECUTE_FRAGMENT_SHADER, T>(colour, depth, it, xmin, ymin, xmax, ymax, x0, y0, z0, iw0, x1, y1, z1, iw1, x2, y2, z2, iw2, e0, e1, e2, iarea, fragment_shader),
+        (true, true, true) => fill_triangle_generic::<_CMP_GE_OQ, _CMP_GE_OQ, _CMP_GE_OQ, EXECUTE_FRAGMENT_SHADER, T>(colour, depth, it, xmin, ymin, xmax, ymax, x0, y0, z0, iw0, x1, y1, z1, iw1, x2, y2, z2, iw2, e0, e1, e2, iarea, fragment_shader),
     }
 }
