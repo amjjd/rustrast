@@ -128,7 +128,7 @@ fn fill_triangle_generic<const C0: i32, const C1: i32, const C2: i32, const EXEC
                     // this near test isn't really enough, we really need to clip geometry against the near plane
                     let near_mask = _mm256_castps_si256(_mm256_cmp_ps(z, one, _CMP_LE_OQ));
 
-                    let existing_z = _mm256_insertf128_ps(_mm256_castps128_ps256(_mm_loadu_ps(d_row0.add(xp))), _mm_loadu_ps(d_row1.add(xp)), 1);
+                    let existing_z = _mm256_loadu2_m128(d_row1.add(xp), d_row0.add(xp));
                     let depth_mask = _mm256_and_si256(_mm256_castps_si256(_mm256_cmp_ps(z, existing_z, _CMP_GT_OQ)), near_mask);
                     let mask = _mm256_and_si256(inside_mask, depth_mask);
 
@@ -138,8 +138,8 @@ fn fill_triangle_generic<const C0: i32, const C1: i32, const C2: i32, const EXEC
                             _mm_maskstore_epi32(c_row0.add(xp) as *mut i32, _mm256_castsi256_si128(c_mask), _mm256_castsi256_si128(filled_span));
                             _mm_maskstore_epi32(c_row1.add(xp) as *mut i32, _mm256_extracti128_si256(c_mask, 1), _mm256_extracti128_si256(filled_span, 1));
                         }
-                        _mm_maskstore_ps(d_row0.add(xp) as *mut f32, _mm256_castsi256_si128(mask), _mm256_castps256_ps128(z));
-                        _mm_maskstore_ps(d_row1.add(xp) as *mut f32, _mm256_extracti128_si256(mask, 1), _mm256_extractf128_ps(z, 1));
+                        let blended_z = _mm256_blendv_ps(existing_z, z, _mm256_castsi256_ps(mask));
+                        _mm256_storeu2_m128(d_row1.add(xp), d_row0.add(xp), blended_z);
                     }
                 }
 

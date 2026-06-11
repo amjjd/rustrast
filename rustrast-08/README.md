@@ -132,8 +132,8 @@ map. I'm comfortable with that: the code is safe as multiple threads are using d
 
 I took some time after finishing to revisit some parts of the code. I moved binning into its own module and combined the
 properties and binning steps. By converting more of it to explicit SIMD I shaved off a few tenths. Much bigger was
-changing from rasterising 8x1 pixel spans to 4x2 pixel blocks. While this means the reads and stores have more code, the
-tighter tolerances around the edges of triangles leading to fewer fragment shader calls was helpful: about 1.5ms per
-frame, bringing the total to just over 15ms.
+changing from rasterising 8x1 pixel spans to 4x2 pixel blocks. While this means the stores have more code, the tighter
+tolerances around the edges of triangles leading to fewer fragment shader calls was helpful: about 2ms per frame,
+bringing the total to just under 15ms.
 
 Next, it's time to get rid of stairstep edges by [anti-aliasing](../rustrast-09/).
