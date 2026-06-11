@@ -7,11 +7,11 @@ use safe_transmute::trivial::*;
 const ALIGNMENT: usize = 128;
 
 // hides the mechanics of alignment  and conversion to from calling code
-pub struct SimdVec<T> where T : TriviallyTransmutable + Default {
+pub struct SimdVec<T> where T : Default {
     vs: AVec<T, ConstAlign<ALIGNMENT>>
 }
 
-impl<T> SimdVec<T> where T : TriviallyTransmutable + Default {
+impl<T> SimdVec<T> where T : Default {
     pub fn new() -> Self {
         SimdVec {vs: AVec::new(ALIGNMENT) }
     }
@@ -20,16 +20,22 @@ impl<T> SimdVec<T> where T : TriviallyTransmutable + Default {
     pub fn with_capacity(capacity: usize) -> Self {
         SimdVec {vs: AVec::with_capacity(ALIGNMENT, capacity) }
     }
+
+    pub fn reserve_exact(&mut self, additional: usize) {
+        self.vs.reserve_exact(additional)
+    }
  
     pub fn push(&mut self, v: T) {
         self.vs.push(v)
     }
 
-    pub fn pad_to_mm256(&mut self) {
-        let padding_bytes = (32 - ((self.vs.len() * size_of::<T>()) % 32)) % 32;
-        let num_padding_elements = padding_bytes / size_of::<T>();
-        for _ in 0..num_padding_elements {
-            self.vs.push(T::default());
+    pub fn fill(&mut self, v: T) where T : Copy {
+        self.vs.fill(v)
+    }
+
+    pub fn extend(&mut self, iter: impl IntoIterator<Item = T>) {
+        for elem in iter {
+            self.push(elem);
         }
     }
 
@@ -37,12 +43,34 @@ impl<T> SimdVec<T> where T : TriviallyTransmutable + Default {
         self.vs.len()
     }
 
+    pub fn truncate(&mut self, new_len: usize) {
+        self.vs.truncate(new_len)
+    }
+
     pub fn as_slice(&self) -> &[T] {
         self.vs.as_slice()
     }
 
+    pub fn as_mut_slice(&mut self) -> &mut [T] {
+        self.vs.as_mut_slice()
+    }
+
     pub fn as_ptr(&self) -> *const T {
         self.vs.as_ptr()
+    }
+
+    pub fn as_mut_ptr(&mut self) -> *mut T {
+        self.vs.as_mut_ptr()
+    }
+}
+
+impl <T> SimdVec<T> where T : TriviallyTransmutable + Default {
+    pub fn pad_to_mm256(&mut self) {
+        let padding_bytes = (32 - ((self.vs.len() * size_of::<T>()) % 32)) % 32;
+        let num_padding_elements = padding_bytes / size_of::<T>();
+        for _ in 0..num_padding_elements {
+            self.vs.push(T::default());
+        }
     }
 
     // these all ignore traling elements; call pad_to_mm256 first if required
@@ -77,7 +105,7 @@ impl<T> SimdVec<T> where T : TriviallyTransmutable + Default {
     }
 }
 
-impl<T, Idx> Index<Idx> for SimdVec<T> where T : TriviallyTransmutable + Default, Idx: SliceIndex<[T]> {
+impl<T, Idx> Index<Idx> for SimdVec<T> where T : Default, Idx: SliceIndex<[T]> {
     type Output = Idx::Output;
 
     fn index(&self, ix: Idx) -> &Self::Output {
@@ -85,13 +113,13 @@ impl<T, Idx> Index<Idx> for SimdVec<T> where T : TriviallyTransmutable + Default
     }
 }
 
-impl<T, Idx> IndexMut<Idx> for SimdVec<T> where T : TriviallyTransmutable + Default, Idx: SliceIndex<[T]> {
+impl<T, Idx> IndexMut<Idx> for SimdVec<T> where T : Default, Idx: SliceIndex<[T]> {
     fn index_mut(&mut self, ix: Idx) -> &mut Self::Output {
         self.vs.index_mut(ix)
     }
 }
 
-impl<T> FromIterator<T> for SimdVec<T> where T : TriviallyTransmutable + Default {
+impl<T> FromIterator<T> for SimdVec<T> where T : Default {
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
         SimdVec {vs: AVec::from_iter(ALIGNMENT, iter) }
     }

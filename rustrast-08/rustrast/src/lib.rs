@@ -39,12 +39,6 @@ struct SceneBuffers {
     shadow_map_ys: RefCell<SimdVec<f32>>,
     shadow_map_zs: RefCell<SimdVec<f32>>,
     shadow_map_iws: RefCell<SimdVec<f32>>,
-    shadow_map: RefCell<Vec<f32>>,
-    xs: RefCell<SimdVec<f32>>,
-    ys: RefCell<SimdVec<f32>>,
-    zs: RefCell<SimdVec<f32>>,
-    iws: RefCell<SimdVec<f32>>,
-    diffuse_intensities: RefCell<Vec<f32>>,
     xmins: RefCell<SimdVec<f32>>,
     ymins: RefCell<SimdVec<f32>>,
     xmaxs: RefCell<SimdVec<f32>>,
@@ -53,9 +47,15 @@ struct SceneBuffers {
     tl0s: RefCell<Vec<u8>>,
     tl1s: RefCell<Vec<u8>>,
     tl2s: RefCell<Vec<u8>>,
-    // for each binning thread, each tile has a list of triangles
     tile_triangles: RefCell<[Vec<Vec<u32>>; NUM_BIN_THREADS]>,
-    depth: RefCell<Vec<f32>>
+    shadow_map: RefCell<SimdVec<f32>>,
+    xs: RefCell<SimdVec<f32>>,
+    ys: RefCell<SimdVec<f32>>,
+    zs: RefCell<SimdVec<f32>>,
+    iws: RefCell<SimdVec<f32>>,
+    diffuse_intensities: RefCell<SimdVec<f32>>,
+    // for each binning thread, each tile has a list of triangles
+    depth: RefCell<SimdVec<f32>>
 }
 
 static SCENE: OnceLock<Mutex<SceneBuffers>> = OnceLock::new();
@@ -84,12 +84,6 @@ pub fn init() {
         shadow_map_ys: RefCell::new(iter::repeat(0f32).take(num_vertices_padded).collect()),
         shadow_map_zs: RefCell::new(iter::repeat(0f32).take(num_vertices_padded).collect()),
         shadow_map_iws: RefCell::new(iter::repeat(0f32).take(num_vertices_padded).collect()),
-        shadow_map: RefCell::new(iter::repeat(0f32).take(SHADOW_MAP_SIZE * SHADOW_MAP_SIZE).collect()),
-        xs: RefCell::new(iter::repeat(0f32).take(num_vertices_padded).collect()),
-        ys: RefCell::new(iter::repeat(0f32).take(num_vertices_padded).collect()),
-        zs: RefCell::new(iter::repeat(0f32).take(num_vertices_padded).collect()),
-        iws: RefCell::new(iter::repeat(0f32).take(num_vertices_padded).collect()),
-        diffuse_intensities: RefCell::new(iter::repeat(0f32).take(num_vertices_padded).collect()),
         xmins: RefCell::new(iter::repeat(0f32).take(num_triangles).collect()),
         ymins: RefCell::new(iter::repeat(0f32).take(num_triangles).collect()),
         xmaxs: RefCell::new(iter::repeat(0f32).take(num_triangles).collect()),
@@ -99,7 +93,13 @@ pub fn init() {
         tl1s: RefCell::new(iter::repeat(0u8).take(num_triangles).collect()),
         tl2s: RefCell::new(iter::repeat(0u8).take(num_triangles).collect()),
         tile_triangles: RefCell::new(array::from_fn(|_| Vec::new())),
-        depth: RefCell::new(Vec::new())
+        shadow_map: RefCell::new(iter::repeat(0f32).take(SHADOW_MAP_SIZE * SHADOW_MAP_SIZE).collect()),
+        xs: RefCell::new(iter::repeat(0f32).take(num_vertices_padded).collect()),
+        ys: RefCell::new(iter::repeat(0f32).take(num_vertices_padded).collect()),
+        zs: RefCell::new(iter::repeat(0f32).take(num_vertices_padded).collect()),
+        iws: RefCell::new(iter::repeat(0f32).take(num_vertices_padded).collect()),
+        diffuse_intensities: RefCell::new(iter::repeat(0f32).take(num_vertices_padded).collect()),
+        depth: RefCell::new(SimdVec::new())
     };
 
     let _ = SCENE.set(Mutex::new(scene));
@@ -109,8 +109,8 @@ fn scene_buffers() -> &'static Mutex<SceneBuffers> {
     SCENE.get().unwrap()
 }
 
-fn vertices<TV : Send + Copy>(
-        xs: &RefCell<SimdVec<f32>>, ys: &RefCell<SimdVec<f32>>, zs: &RefCell<SimdVec<f32>>, iws: &RefCell<SimdVec<f32>>, extras_out: &RefCell<Vec<TV>>,
+fn vertices<TV : Send + Copy + Default>(
+        xs: &RefCell<SimdVec<f32>>, ys: &RefCell<SimdVec<f32>>, zs: &RefCell<SimdVec<f32>>, iws: &RefCell<SimdVec<f32>>, extras_out: &RefCell<SimdVec<TV>>,
         model: &Model, vertex_shader: &impl AvxVertexShader<TV>, log_prefix: &str) {
     {
         let xs_out = &mut *xs.borrow_mut();
@@ -191,7 +191,7 @@ fn draw_tile<TE, const F: bool, TF: Send + Copy>(
 }
 
 fn draw_triangles<TE : Send + Sync, const CULL_MODE: i32, const EXECUTE_FRAGMENT_SHADER: bool, TF: Send + Copy>(
-        buffer: *mut RGBQUAD, depth: &RefCell<Vec<f32>>, stride: usize, lines: usize, 
+        buffer: *mut RGBQUAD, depth: &RefCell<SimdVec<f32>>, stride: usize, lines: usize, 
         scene: &SceneBuffers, xs: &RefCell<SimdVec<f32>>, ys: &RefCell<SimdVec<f32>>, zs: &RefCell<SimdVec<f32>>, iws: &RefCell<SimdVec<f32>>,
         cull_mode: CullMode<CULL_MODE>, extras: &TE, vertex_extra: fn(&TE, usize) -> TF, fragment_shader: &impl AvxFragmentShader<EXECUTE_FRAGMENT_SHADER, TF>, log_prefix: &str) {
     let model = &scene.model;
@@ -324,7 +324,7 @@ impl AvxVertexShader<f32> for VertexShader<'_> {
 
         vectors_chunk_transformed_normalised(vertex_normal_xs, vertex_normal_ys, vertex_normal_zs, self.it_world, |i, xt, yt, zt| {
             let diffuse_intensity = _mm256_mul_ps(_mm256_max_ps(dot_product!(xt, yt, zt, self.light_direction_x, self.light_direction_y, self.light_direction_z), _mm256_setzero_ps()), self.light_intensity);
-            _mm256_storeu_ps(diffuse_intensities_out[i * 8..].as_mut_ptr(), diffuse_intensity);
+            _mm256_store_ps(diffuse_intensities_out[i * 8..].as_mut_ptr(), diffuse_intensity);
         });
 
         return convert_to_cartesian;
@@ -453,7 +453,7 @@ pub fn draw(buffer: *mut RGBQUAD, width: usize, height: usize, stride: usize, li
     let light_t = world.then(&light_view).then(&light_projection).then(&light_viewport);
 
     let shadow_map_vertex_shader = NullVertexShader::new(&light_t);
-    let null_extras = RefCell::new(vec![(); scene.num_vertices_padded]); // no allocation
+    let null_extras = RefCell::new(iter::repeat(()).take(scene.num_vertices_padded).collect()); // no allocation
     vertices( &scene.shadow_map_xs, &scene.shadow_map_ys, &scene.shadow_map_zs, &scene.shadow_map_iws, &null_extras, &model, &shadow_map_vertex_shader, "Shadow map: ");
     let null_vertex_extra = |_: &(), _| ();
     draw_triangles(
