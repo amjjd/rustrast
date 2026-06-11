@@ -128,7 +128,9 @@ Rusting away
 
 I had to take a step backwards in correctness this time: the depth buffer no longer uses safe chunks, but is now passed
 to the tile threads unsafely just like the colour buffer. This is to simplify reading from it when it's used as a shadow
-map. I'm comfortable with that: the code is safe as multiple threads are using disjoint parts of the buffers.
+map. I'm comfortable with that: the code is safe as multiple threads are using disjoint parts of the buffers. As a sort
+of trade off, I did start using const generics instead of huge macros to allow small configurations like culling mode
+or skipping the fragment shader to work without branching.
 
 I took some time after finishing to revisit some parts of the code. I moved binning into its own module and combined the
 properties and binning steps. By converting more of it to explicit SIMD I shaved off a few tenths. Much bigger was
