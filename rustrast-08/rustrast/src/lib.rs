@@ -27,8 +27,10 @@ use rasterisation::*;
 pub const BACK_BUFFER_X_ALIGNMENT: usize = 4;
 pub const BACK_BUFFER_Y_ALIGNMENT: usize = 2;
 
-pub const TILE_WIDTH: usize = 128; // must be a multiple of BACK_BUFFER_ALIGNMENT
-pub const TILE_HEIGHT: usize = 128;
+pub const LOG_TILE_WIDTH: usize = 7; // 2^7 = 128, must be a multiple of BACK_BUFFER_ALIGNMENT
+pub const LOG_TILE_HEIGHT: usize = 7; // 2^7 = 128
+pub const TILE_WIDTH: usize = 1 << LOG_TILE_WIDTH;
+pub const TILE_HEIGHT: usize = 1 << LOG_TILE_HEIGHT;
 
 // more hackery to avoid managing memory; these are all initialised based on the loaded model
 struct SceneBuffers {
@@ -44,9 +46,9 @@ struct SceneBuffers {
     xmaxs: RefCell<SimdVec<f32>>,
     ymaxs: RefCell<SimdVec<f32>>,
     iareas: RefCell<SimdVec<f32>>,
-    tl0s: RefCell<Vec<u8>>,
-    tl1s: RefCell<Vec<u8>>,
-    tl2s: RefCell<Vec<u8>>,
+    tl0s: RefCell<SimdVec<u32>>,
+    tl1s: RefCell<SimdVec<u32>>,
+    tl2s: RefCell<SimdVec<u32>>,
     tile_triangles: RefCell<[Vec<Vec<u32>>; NUM_BIN_THREADS]>,
     shadow_map: RefCell<SimdVec<f32>>,
     xs: RefCell<SimdVec<f32>>,
@@ -89,9 +91,9 @@ pub fn init() {
         xmaxs: RefCell::new(iter::repeat(0f32).take(num_triangles).collect()),
         ymaxs: RefCell::new(iter::repeat(0f32).take(num_triangles).collect()),
         iareas: RefCell::new(iter::repeat(0f32).take(num_triangles).collect()),
-        tl0s: RefCell::new(iter::repeat(0u8).take(num_triangles).collect()),
-        tl1s: RefCell::new(iter::repeat(0u8).take(num_triangles).collect()),
-        tl2s: RefCell::new(iter::repeat(0u8).take(num_triangles).collect()),
+        tl0s: RefCell::new(iter::repeat(0u32).take(num_triangles).collect()),
+        tl1s: RefCell::new(iter::repeat(0u32).take(num_triangles).collect()),
+        tl2s: RefCell::new(iter::repeat(0u32).take(num_triangles).collect()),
         tile_triangles: RefCell::new(array::from_fn(|_| Vec::new())),
         shadow_map: RefCell::new(iter::repeat(0f32).take(SHADOW_MAP_SIZE * SHADOW_MAP_SIZE).collect()),
         xs: RefCell::new(iter::repeat(0f32).take(num_vertices_padded).collect()),
@@ -142,7 +144,7 @@ fn draw_tile<TE, const F: bool, TF: Send + Copy>(
         tile: &mut Tile, 
         model: &Model, xs: &SimdVec<f32>, ys: &SimdVec<f32>, zs: &SimdVec<f32>, iws: &SimdVec<f32>,
         xmins: &SimdVec<f32>, ymins: &SimdVec<f32>, xmaxs: &SimdVec<f32>, ymaxs: &SimdVec<f32>,
-        iareas: &SimdVec<f32>, tl0s: &Vec<u8>, tl1s: &Vec<u8>, tl2s: &Vec<u8>,
+        iareas: &SimdVec<f32>, tl0s: &SimdVec<u32>, tl1s: &SimdVec<u32>, tl2s: &SimdVec<u32>,
         triangles: [&Vec<u32>; NUM_BIN_THREADS], 
         extras: &TE, vertex_extra: fn(&TE, usize) -> TF, fragment_shader: &impl AvxFragmentShader<F, TF>) {
     let tile_xmin = tile.xmin as f32;
@@ -153,20 +155,20 @@ fn draw_tile<TE, const F: bool, TF: Send + Copy>(
     for i in 0..NUM_BIN_THREADS {
         for j in 0..triangles[i].len() {
             let it = triangles[i][j] as usize;
-            let mut xmin = xmins[it];
-            let mut ymin = ymins[it];
-            let mut xmax = xmaxs[it];
-            let mut ymax = ymaxs[it];
+            let xmin = xmins[it];
+            let ymin = ymins[it];
+            let xmax = xmaxs[it];
+            let ymax = ymaxs[it];
             let iarea = iareas[it];
             let tl0 = tl0s[it] != 0;
             let tl1 = tl1s[it] != 0;
             let tl2 = tl2s[it] != 0;
 
             // clip to the tile
-            xmin = xmin.max(tile_xmin);
-            ymin = ymin.max(tile_ymin);
-            xmax = xmax.min(tile_xmax);
-            ymax = ymax.min(tile_ymax);
+            let xmin = xmin.max(tile_xmin);
+            let ymin = ymin.max(tile_ymin);
+            let xmax = xmax.min(tile_xmax);
+            let ymax = ymax.min(tile_ymax);
 
             let x0 = xs[model.trianglev0s[it] as usize];
             let y0 = ys[model.trianglev0s[it] as usize];
@@ -191,7 +193,7 @@ fn draw_tile<TE, const F: bool, TF: Send + Copy>(
 }
 
 fn draw_triangles<TE : Send + Sync, const CULL_MODE: i32, const EXECUTE_FRAGMENT_SHADER: bool, TF: Send + Copy>(
-        buffer: *mut RGBQUAD, depth: &RefCell<SimdVec<f32>>, stride: usize, lines: usize, 
+        buffer: *mut RGBQUAD, depth: &RefCell<SimdVec<f32>>, width: usize, height: usize, stride: usize, lines: usize, 
         scene: &SceneBuffers, xs: &RefCell<SimdVec<f32>>, ys: &RefCell<SimdVec<f32>>, zs: &RefCell<SimdVec<f32>>, iws: &RefCell<SimdVec<f32>>,
         cull_mode: CullMode<CULL_MODE>, extras: &TE, vertex_extra: fn(&TE, usize) -> TF, fragment_shader: &impl AvxFragmentShader<EXECUTE_FRAGMENT_SHADER, TF>, log_prefix: &str) {
     let model = &scene.model;
@@ -215,7 +217,7 @@ fn draw_triangles<TE : Send + Sync, const CULL_MODE: i32, const EXECUTE_FRAGMENT
         time(format!("{}Binned {} triangles", log_prefix, num_triangles), || {
             bin_triangles(
                 xmins_out, ymins_out, xmaxs_out, ymaxs_out, iareas_out, tl0s_out, tl1s_out, tl2s_out, tile_triangles_out,
-                model, xs, ys, stride, lines, cull_mode);
+                model, xs, ys, width, height, cull_mode);
         })
     }
     let xmins = &*scene.xmins.borrow();
@@ -457,7 +459,7 @@ pub fn draw(buffer: *mut RGBQUAD, width: usize, height: usize, stride: usize, li
     vertices( &scene.shadow_map_xs, &scene.shadow_map_ys, &scene.shadow_map_zs, &scene.shadow_map_iws, &null_extras, &model, &shadow_map_vertex_shader, "Shadow map: ");
     let null_vertex_extra = |_: &(), _| ();
     draw_triangles(
-        std::ptr::null_mut(), &scene.shadow_map, SHADOW_MAP_SIZE, SHADOW_MAP_SIZE,
+        std::ptr::null_mut(), &scene.shadow_map, SHADOW_MAP_SIZE, SHADOW_MAP_SIZE, SHADOW_MAP_SIZE, SHADOW_MAP_SIZE,
         &scene, &scene.shadow_map_xs, &scene.shadow_map_ys, &scene.shadow_map_zs, &scene.shadow_map_iws,
         CULL_BACK_FACING, &(), null_vertex_extra,
         &NullFragmentShader::INSTANCE, "Shadow map: ");
@@ -479,7 +481,7 @@ pub fn draw(buffer: *mut RGBQUAD, width: usize, height: usize, stride: usize, li
     };
     let fragment_shader = FragmentShader::new(light_intensity, shadow_attenuation, ambient_intensity, shadow_map.as_slice());
     draw_triangles(
-        buffer, &scene.depth, stride, lines,
+        buffer, &scene.depth, width, height, stride, lines,
         &scene, &scene.xs, &scene.ys, &scene.zs, &scene.iws,
         CULL_BACK_FACING, &(diffuse_intensities.as_slice(), shadow_map_xs.as_slice(), shadow_map_ys.as_slice(), shadow_map_zs.as_slice()), vertex_extra,
         &fragment_shader, "");

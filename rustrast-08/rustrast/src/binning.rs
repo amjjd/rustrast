@@ -5,6 +5,8 @@ use scoped_threadpool::Pool;
 
 use crate::TILE_HEIGHT;
 use crate::TILE_WIDTH;
+use crate::LOG_TILE_WIDTH;
+use crate::LOG_TILE_HEIGHT;
 
 use super::simd_vec::*;
 use super::obj::*;
@@ -18,9 +20,9 @@ fn max3(a: f32, b: f32, c: f32) -> f32 {
     a.max(b).max(c)
 }
 
-fn is_top_or_left(x0: f32, y0: f32, x1: f32, y1: f32) -> u8 {
+fn is_top_or_left(x0: f32, y0: f32, x1: f32, y1: f32) -> u32 {
     // top                   left (assuming counterclockwise, inverted y axis)
-    if (y0 == y1 && x0 > x1) || (y1 < y0) { u8::MAX } else { 0 }
+    if (y0 == y1 && x0 > x1) || (y1 < y0) { u32::MAX } else { 0 }
 }
 
 macro_rules! is_top_or_left {
@@ -49,22 +51,26 @@ fn add_to_bins(tile_triangles: &mut Vec<Vec<u32>>, left: usize, top: usize, righ
 
 unsafe fn bin_triangles_chunk<const CULL_MODE: i32>(
         xmins_out: &mut [__m256], ymins_out: &mut [__m256], xmaxs_out: &mut [__m256], ymaxs_out: &mut [__m256],
-        iareas_out: &mut [__m256], tl0s_out: &mut [u8], tl1s_out: &mut [u8], tl2s_out: &mut [u8],
+        iareas_out: &mut [__m256], tl0s_out: &mut [__m256i], tl1s_out: &mut [__m256i], tl2s_out: &mut [__m256i],
         tile_triangles_out: &mut Vec<Vec<u32>>,
         v0s: &[__m256i], v1s: &[__m256i], v2s: &[__m256i],
         xs: &SimdVec<f32>, ys: &SimdVec<f32>,
         vs_offset: usize, chunk_size: usize,
-        num_tiles_x: usize, num_tiles_y: usize) {
+        width: usize, height: usize, num_tiles_x: usize, num_tiles_y: usize) {
     let xs_ptr = xs.as_ptr();
     let ys_ptr = ys.as_ptr();
 
     let zero = _mm256_setzero_ps();
-    let one = _mm256_set1_ps(1.0);
-    let itile_width = _mm256_div_ps(one, _mm256_set1_ps(super::TILE_WIDTH as f32));
-    let itile_height = _mm256_div_ps(one, _mm256_set1_ps(super::TILE_HEIGHT as f32));
+    let width = _mm256_set1_ps(width as f32);
+    let height = _mm256_set1_ps(height as f32);
     let zero_i32 = _mm256_set1_epi32(0);
     let max_tile_x = _mm256_set1_epi32(num_tiles_x as i32 - 1);
     let max_tile_y = _mm256_set1_epi32(num_tiles_y as i32 - 1);
+
+    let mut left = [0i32; 8];
+    let mut top= [0i32; 8];
+    let mut right = [0i32; 8];
+    let mut bottom = [0i32; 8];
 
     for i in 0..chunk_size {
         let idx0 = v0s[vs_offset + i];
@@ -87,33 +93,33 @@ unsafe fn bin_triangles_chunk<const CULL_MODE: i32>(
         xmaxs_out[i] = xmax;
         ymaxs_out[i] = ymax;
 
+        // remove triangles that are completely outside the screen bounds
+        let cull = _mm256_cmp_ps(xmax, zero, _CMP_LT_OQ);
+        let cull = _mm256_or_ps(cull, _mm256_cmp_ps(ymax, zero, _CMP_LT_OQ));
+        let cull = _mm256_or_ps(cull, _mm256_cmp_ps(xmin, width, _CMP_GE_OQ));
+        let cull = _mm256_or_ps(cull, _mm256_cmp_ps(ymin, height, _CMP_GE_OQ));
+
         let area = edge_function!(x0, y0, x1, y1, x2, y2);
         iareas_out[i] = _mm256_rcp_ps(area);
-        let cull = _mm256_castps_si256(_mm256_cmp_ps(area, zero, CULL_MODE));
+        let cull = _mm256_or_ps(cull, _mm256_cmp_ps(area, zero, CULL_MODE));
 
-        let tl0 = is_top_or_left!(x1, y1, x2, y2);
-        let tl1 = is_top_or_left!(x2, y2, x0, y0);
-        let tl2 = is_top_or_left!(x0, y0, x1, y1);
+        tl0s_out[i] = is_top_or_left!(x1, y1, x2, y2);
+        tl1s_out[i] = is_top_or_left!(x2, y2, x0, y0);
+        tl2s_out[i] = is_top_or_left!(x0, y0, x1, y1);
 
-        let left = _mm256_max_epi32(_mm256_cvttps_epi32(_mm256_mul_ps(xmin, itile_width)), zero_i32);
-        let top = _mm256_max_epi32(_mm256_cvttps_epi32(_mm256_mul_ps(ymin, itile_height)), zero_i32);
-        let right = _mm256_min_epi32(_mm256_cvttps_epi32(_mm256_mul_ps(xmax, itile_width)), max_tile_x);
-        let bottom = _mm256_min_epi32(_mm256_cvttps_epi32(_mm256_mul_ps(ymax, itile_height)), max_tile_y);
+        let cull = _mm256_movemask_ps(cull);
+
+        _mm256_storeu_epi32(left.as_mut_ptr(), _mm256_max_epi32(_mm256_srai_epi32(_mm256_cvttps_epi32(xmin), LOG_TILE_WIDTH as i32), zero_i32));
+        _mm256_storeu_epi32(top.as_mut_ptr(), _mm256_max_epi32(_mm256_srai_epi32(_mm256_cvttps_epi32(ymin), LOG_TILE_HEIGHT as i32), zero_i32));
+        _mm256_storeu_epi32(right.as_mut_ptr(), _mm256_min_epi32(_mm256_srai_epi32(_mm256_cvttps_epi32(xmax), LOG_TILE_WIDTH as i32), max_tile_x));
+        _mm256_storeu_epi32(bottom.as_mut_ptr(), _mm256_min_epi32(_mm256_srai_epi32(_mm256_cvttps_epi32(ymax), LOG_TILE_HEIGHT as i32), max_tile_y));
 
         macro_rules! per_triangle {
             ($j:expr) => {
                 let ot = i * 8 + $j;
 
-                tl0s_out[ot] = _mm256_extract_epi32(tl0, $j as i32) as u8;
-                tl1s_out[ot] = _mm256_extract_epi32(tl1, $j as i32) as u8;
-                tl2s_out[ot] = _mm256_extract_epi32(tl2, $j as i32) as u8;
-
-                if (_mm256_extract_epi32(cull, $j as i32) == 0) {
-                    let left = _mm256_extract_epi32(left, $j as i32) as usize;
-                    let top = _mm256_extract_epi32(top, $j as i32) as usize;
-                    let right = _mm256_extract_epi32(right, $j as i32) as usize;
-                    let bottom = _mm256_extract_epi32(bottom, $j as i32) as usize;
-                    add_to_bins(tile_triangles_out, left, top, right, bottom, (vs_offset * 8 + ot) as u32, num_tiles_x);
+                if (cull & (1 << $j)) == 0 {
+                    add_to_bins(tile_triangles_out, left[$j] as usize, top[$j] as usize, right[$j] as usize, bottom[$j] as usize, (vs_offset * 8 + ot) as u32, num_tiles_x);
                 }
             };
         }
@@ -131,10 +137,10 @@ unsafe fn bin_triangles_chunk<const CULL_MODE: i32>(
 
 fn bin_triangle<const CULL_MODE: i32>(
         xmins_out: &mut SimdVec<f32>, ymins_out: &mut SimdVec<f32>, xmaxs_out: &mut SimdVec<f32>, ymaxs_out: &mut SimdVec<f32>,
-        iareas_out: &mut SimdVec<f32>, tl0s_out: &mut Vec<u8>, tl1s_out: &mut Vec<u8>, tl2s_out: &mut Vec<u8>,
+        iareas_out: &mut SimdVec<f32>, tl0s_out: &mut SimdVec<u32>, tl1s_out: &mut SimdVec<u32>, tl2s_out: &mut SimdVec<u32>,
         tile_triangles_out: &mut Vec<Vec<u32>>,
         it: usize, x0: f32, y0: f32, x1: f32, y1: f32, x2: f32, y2: f32,
-        num_tiles_x: usize, num_tiles_y: usize) {
+        width: usize, height: usize, num_tiles_x: usize, num_tiles_y: usize) {
     let xmin =  min3(x0, x1, x2).floor();
     let ymin = min3(y0, y1, y2).floor();
     let xmax = max3(x0, x1, x2).ceil();
@@ -151,11 +157,12 @@ fn bin_triangle<const CULL_MODE: i32>(
     tl1s_out[it] = is_top_or_left(x2, y2, x0, y0);
     tl2s_out[it] = is_top_or_left(x0, y0, x1, y1);
 
-    if CULL_MODE == _CMP_EQ_OQ || (CULL_MODE == _CMP_LE_OQ && area > 0.0) || (CULL_MODE == _CMP_GE_OQ && area < 0.0) {
-        let left = ((xmin / TILE_WIDTH as f32) as usize).max(0);
-        let top = ((ymin / TILE_HEIGHT as f32) as usize).max(0);
-        let right = ((xmax / TILE_WIDTH as f32) as usize).min(num_tiles_x - 1);
-        let bottom = ((ymax / TILE_HEIGHT as f32) as usize).min(num_tiles_y - 1);
+    if xmax >= 0.0 && ymax >= 0.0 && xmin < width as f32 && ymin < height as f32  &&
+    (CULL_MODE == _CMP_EQ_OQ || (CULL_MODE == _CMP_LE_OQ && area > 0.0) || (CULL_MODE == _CMP_GE_OQ && area < 0.0)) {
+        let left = ((xmin as usize) >> LOG_TILE_WIDTH).max(0);
+        let top = ((ymin as usize) >> LOG_TILE_HEIGHT).max(0);
+        let right = ((xmax as usize) >> LOG_TILE_WIDTH).min(num_tiles_x - 1);
+        let bottom = ((ymax as usize) >> LOG_TILE_HEIGHT).min(num_tiles_y - 1);
         add_to_bins(tile_triangles_out, left, top, right, bottom, it as u32, num_tiles_x);
     }
 }
@@ -177,13 +184,13 @@ pub const CULL_FRONT_FACING: CullMode<_CMP_GE_OQ> = CullMode{_private: ()};
 
 pub fn bin_triangles<const CULL_MODE: i32>(
         xmins_out: &mut SimdVec<f32>, ymins_out: &mut SimdVec<f32>, xmaxs_out: &mut SimdVec<f32>, ymaxs_out: &mut SimdVec<f32>,
-        iareas_out: &mut SimdVec<f32>, tl0s_out: &mut Vec<u8>, tl1s_out: &mut Vec<u8>, tl2s_out: &mut Vec<u8>,
+        iareas_out: &mut SimdVec<f32>, tl0s_out: &mut SimdVec<u32>, tl1s_out: &mut SimdVec<u32>, tl2s_out: &mut SimdVec<u32>,
         tile_triangles_out: &mut [Vec<Vec<u32>>; NUM_BIN_THREADS],
-        model: &Model, xs: &SimdVec<f32>, ys: &SimdVec<f32>, stride: usize, lines: usize, _cull_mode: CullMode<CULL_MODE>) {
+        model: &Model, xs: &SimdVec<f32>, ys: &SimdVec<f32>, width: usize, height: usize, _cull_mode: CullMode<CULL_MODE>) {
 
     // this should only allocate heavily during the first few frames
-    let num_tiles_x = (stride + super::TILE_WIDTH - 1) / super::TILE_WIDTH;
-    let num_tiles_y = (lines + super::TILE_HEIGHT - 1) / super::TILE_HEIGHT;
+    let num_tiles_x = (width + TILE_WIDTH - 1) / TILE_WIDTH;
+    let num_tiles_y = (height + TILE_HEIGHT - 1) / TILE_HEIGHT;
     let num_tiles = num_tiles_x * num_tiles_y;
     for i in 0..NUM_BIN_THREADS {
         if tile_triangles_out[i].len() > num_tiles {
@@ -218,12 +225,12 @@ pub fn bin_triangles<const CULL_MODE: i32>(
         unsafe { 
             bin_triangles_chunk::<CULL_MODE>(
                 xmins_out.as_m256_mut(), ymins_out.as_m256_mut(), xmaxs_out.as_m256_mut(), ymaxs_out.as_m256_mut(),
-                iareas_out.as_m256_mut(), tl0s_out.as_mut_slice(), tl1s_out.as_mut_slice(), tl2s_out.as_mut_slice(),
+                iareas_out.as_m256_mut(), tl0s_out.as_m256i_mut(), tl1s_out.as_m256i_mut(), tl2s_out.as_m256i_mut(),
                 &mut tile_triangles_out[0],
                 v0s, v1s, v2s,
                 xs, ys,
                 0, chunk_size,
-                num_tiles_x, num_tiles_y);
+                width, height, num_tiles_x, num_tiles_y);
         }
         chunk_start += chunk_size;
     }
@@ -235,9 +242,9 @@ pub fn bin_triangles<const CULL_MODE: i32>(
             let mut xmaxs_out_chunks = xmaxs_out.as_m256_mut().chunks_exact_mut(chunk_size);
             let mut ymaxs_out_chunks = ymaxs_out.as_m256_mut().chunks_exact_mut(chunk_size);
             let mut iareas_out_chunks = iareas_out.as_m256_mut().chunks_exact_mut(chunk_size);
-            let mut tl0s_out_chunks = tl0s_out.chunks_exact_mut(chunk_size * 8);
-            let mut tl1s_out_chunks = tl1s_out.chunks_exact_mut(chunk_size * 8);
-            let mut tl2s_out_chunks = tl2s_out.chunks_exact_mut(chunk_size * 8);
+            let mut tl0s_out_chunks = tl0s_out.as_m256i_mut().chunks_exact_mut(chunk_size);
+            let mut tl1s_out_chunks = tl1s_out.as_m256i_mut().chunks_exact_mut(chunk_size);
+            let mut tl2s_out_chunks = tl2s_out.as_m256i_mut().chunks_exact_mut(chunk_size);
             let mut tile_triangles_out_chunks = tile_triangles_out.iter_mut();
 
             for _ in 0..num_chunks {
@@ -259,7 +266,7 @@ pub fn bin_triangles<const CULL_MODE: i32>(
                         v0s, v1s, v2s,
                         xs, ys,
                         vs_offset, chunk_size,
-                        num_tiles_x, num_tiles_y);
+                        width, height, num_tiles_x, num_tiles_y);
                 });
 
                 chunk_start += chunk_size;
@@ -272,6 +279,6 @@ pub fn bin_triangles<const CULL_MODE: i32>(
         bin_triangle::<CULL_MODE>(
             xmins_out, ymins_out, xmaxs_out, ymaxs_out, iareas_out, tl0s_out, tl1s_out, tl2s_out, &mut tile_triangles_out[NUM_BIN_THREADS - 1],
             it, xs[model.trianglev0s[it] as usize], ys[model.trianglev0s[it] as usize], xs[model.trianglev1s[it] as usize], ys[model.trianglev1s[it] as usize], xs[model.trianglev2s[it] as usize], ys[model.trianglev2s[it] as usize],
-            num_tiles_x, num_tiles_y);
+            width, height, num_tiles_x, num_tiles_y);
     }
 }
