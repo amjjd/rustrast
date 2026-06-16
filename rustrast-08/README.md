@@ -133,9 +133,14 @@ of trade off, I did start using const generics instead of huge macros to allow s
 or skipping the fragment shader to work without branching.
 
 I took some time after finishing to revisit some parts of the code. I moved binning into its own module and combined the
-properties and binning steps. By converting more of it to explicit SIMD I shaved off a few tenths. Much bigger was
-changing from rasterising 8x1 pixel spans to 4x2 pixel blocks. While this means the stores have more code, the tighter
-tolerances around the edges of triangles leading to fewer fragment shader calls was helpful: about 2ms per frame,
-bringing the total to just under 15ms.
+properties and binning steps. By converting more of it to explicit SIMD I shaved off a few tenths. I experimented with
+doing triangle setup during binning but this was slower. I got a much bigger gain from changing from rasterising 8x1
+pixel spans to 4x2 pixel blocks. While this means the stores have more code, the tighter tolerances around the edges of
+triangles leading to fewer fragment shader calls was helpful: about 2ms per frame, bringing the total to just under
+15ms. Finally, I did another round of multiprocessing tuning and found my machine benefits up to 6 rasterisation threads
+(the same number as physical cores), taking off anohter 2.5ms per frame, while vertex shading and binning still stop
+showing improvement at only 4 threads.
 
-Next, it's time to get rid of stairstep edges by [anti-aliasing](../rustrast-09/).
+Next, it's time to give back some of that performance gain to get rid of stairstep edges by [anti-
+aliasing](../rustrast-09/).
+

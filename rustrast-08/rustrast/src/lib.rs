@@ -136,8 +136,8 @@ struct Tile<'a> {
     ymax: usize,
 }
 
-// my machine stops showing improvement above 4 threads
-const NUM_DRAW_THREADS: u32 = 4;
+// my machine stops showing improvement above six threads
+const NUM_DRAW_THREADS: u32 = 6;
 static DRAW_WORKERS: Lazy<Mutex<Pool>> = Lazy::new(|| Mutex::new(Pool::new(NUM_DRAW_THREADS)));
 
 fn draw_tile<TE, const F: bool, TF: Send + Copy>(
