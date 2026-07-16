@@ -8,7 +8,7 @@ This time around I implement MSAA to get rid of jaggies.
 No Stairway - denied!
 ---------------------
 
-Because a pixel either is or isn't a triangle, the edges of the model are stair-stepped:
+Because a pixel either is or isn't inside a triangle, the edges of the model are stair-stepped:
 
 ![Jagged edges](./Jaggies.png)
 
@@ -74,8 +74,8 @@ more than doubled the time taken per frame.
 
 Supersampling was reasonably common in the early days of hardware acceleration, but as seen, it's extremely expensive in
 terms of computation. Hence, a technique called multisampling (MSAA) was developed: draw to a larger buffer (and depth
-buffer) as with supersampling, but only carry out the inside test multiple times per screen pixel: call the pixel shader
-just once. At the end, like with supersampling, the buffer is downsampled using a filter to the screen. As with
+buffer) as with supersampling, but only carry out the inside test multiple times per screen pixel: call the fragment
+shader just once. At the end, like with supersampling, the buffer is downsampled using a filter to the screen. As with
 everything I've experimented with, there's nuance: the locations within the pixel are usually arranged in a [rotated
 fashion](https://learn.microsoft.com/en-us/windows/win32/api/d3d11/ne-d3d11-d3d11_standard_multisample_quality_levels)
 to reduce artefacts; and the simplest versions run the pixel shader for a fixed location in the pixel which might be
@@ -140,7 +140,7 @@ The result then has to be gamma corrected and converted to RGB8 which can be don
 component, for another seven operations and three gathers per eight output pixels for both modes.
 
 ```rust
-const GAMMA: f32 = 2.2;
+const GAMMA: f32 = 2.2;
 const COMPONENT_LUT_SIZE: usize = 1024;
 fn init_colour_lut(shift: usize) -> [i32; COMPONENT_LUT_SIZE] {
     array::from_fn(|i| {

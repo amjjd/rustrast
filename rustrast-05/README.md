@@ -309,8 +309,8 @@ My Rust is rusty
 Coming back to this after such a long break was tricky: Rust has a steep learning curve, and I hadn't climbed anywhere
 near the top last time so I found it difficult to write anything. The compiler was helpful as usual.
 
-All the multithreading this time encouraged me to do more reading and figure out scoped threads (well, the somewhat-
-deprecated `scoped_threadpool`) and chunks so I could eliminate a lot of the unsafe annotations or move them to just the
-code that uses SIMD intrinsics.
+All the multithreading this time encouraged me to do more reading and figure out scoped threads (well, the
+somewhat-deprecated `scoped_threadpool`) and chunks so I could eliminate a lot of the unsafe annotations or move them to
+just the code that uses SIMD intrinsics.
 
 Next, we'll finally get some realism with [lighting and z-buffering](../rustrast-06/).
