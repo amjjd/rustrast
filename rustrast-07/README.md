@@ -40,10 +40,10 @@ inlined in this case, given all the code is compiled together). So, I came up wi
 
 Note that this design makes it quite tricky to implement flat shading, which is also the case with the various real
 libraries: the vertex shader isn't run for a given triangle so there's no concept of a surface normal. I think in the
-rare cases where someone wants to flat shade, they either use a model with different surface normals per face for
-shared vertices, or use a geometry shader which sits between vertex and fragment shading to calculate the flat shade,
-or just do it per pixel in the fragment shader. I decided to keep the existing lighting pass to test the performance
-impact of the refactoring on its own.
+rare cases where someone wants to flat shade, they either use a model with different vertex normals per face for shared
+vertices, or use a geometry shader which sits between vertex and fragment shading to calculate the flat shade, or just
+do it per pixel in the fragment shader. I decided to keep the existing lighting pass to test the performance impact of
+the refactoring on its own.
 
 So, it was time to get to it and find out how far off being workable my plan was. This was the interface I came up, not
 considering normals yet:
