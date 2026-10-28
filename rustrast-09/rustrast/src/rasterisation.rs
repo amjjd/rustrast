@@ -407,7 +407,7 @@ fn fill_triangle_generic<const AA_MODE: i32, C: FragmentColour, const C0: i32, c
                             _mm256_storeu2_m128(d_row.add(buffer_size.stride + xp), d_row.add(xp), blended_z);
                         },
                         MSAA_2X_IX => {
-                            // double width and height; depths and colours are stored with the 4x2 block flattened to 8x1;
+                            // double width; depths and colours are stored with the 4x2 block flattened to 8x1;
                             // this is masked according to each sample point and stored vertically and the downsampler
                             // eventually converts each 8x2 back into 4x2
                             let existing_z_0 = _mm256_load_ps(d_row.add(xp * 2));
